@@ -11,11 +11,16 @@
             }
         },
         "nonce": "0x0",
-        "timestamp": "0x66cee8a8",
+        "timestamp": "0x66e9421f",
         "gasLimit": "0x1fffffffffffff",
         "difficulty": "0x1",
         "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
-        "coinbase": "0x0000000000000000000000000000000000000000"
+        "coinbase": "0x0000000000000000000000000000000000000000",
+        "alloc": {
+            "453d4f654Fc41bcB3d405973e9BaB0e6a506c02a": {
+                "balance": "100000000000000000000000000"
+            }
+        }
     },
     "blockchain": {
         "nodes": {

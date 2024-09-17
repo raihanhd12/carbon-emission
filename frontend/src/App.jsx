@@ -1,14 +1,12 @@
-import './LandingPage/App.scss'
-import ConnectWallet from './ConnectWallet/ConnectWallet'
-import LandingPage from './LandingPage/LandingPage'
-import Login from "./Login"
+import "./LandingPage/App.scss";
+import LandingPage from "./LandingPage/LandingPage";
 
-function App () {
+function App() {
   return (
     <div>
-         <ConnectWallet/>
+      <LandingPage />
     </div>
-   )
+  );
 }
 
-export default App
+export default App;
