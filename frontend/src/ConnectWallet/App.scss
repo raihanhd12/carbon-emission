@@ -18,6 +18,8 @@ p {
         display: flex;
         flex-wrap: wrap;
         border: #FF343F;
+        border-bottom: solid;
+        border-color: #bcbcbc;
 
         .navbar {
             height: 5%;
@@ -101,7 +103,7 @@ p {
     }
 
     .main {
-        padding: 0px 0 50px 0;
+        padding: 50px 0 50px 0;
         display: flex;
         flex-direction: row;
         flex-wrap: wrap;

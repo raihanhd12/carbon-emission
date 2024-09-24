@@ -170,6 +170,7 @@ body {
 
             .section-content-two {
                 width: 87%;
+                max-width: 87%;
                 margin: auto;
 
                 // PENTING!!!
@@ -182,6 +183,7 @@ body {
 
                     .card {
                         background-color: #ffffff;
+                        width: 450px;
                         height: 450px;
                         border: solid;
                         border-color: #000000;
@@ -213,12 +215,19 @@ body {
                             padding: 1rem; // 16px
         
                             .card-title {
+                                text-align: center;
                                 font-size: 1.25rem; // 20px
                                 font-weight: 600; // semi-bold
                                 color: #000000; // blue-600
                             }
                         
-                            .card-review {
+                            .card-price {
+                                text-align: center;
+                                color: #000000; // blue-600
+                            }
+
+                            .card-unit {
+                                text-align: center;
                                 color: #000000; // blue-600
                             }
                         

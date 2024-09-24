@@ -1,41 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Cart from '../assets/cart.svg'
 import Next from '../assets/next.svg'
 import Metamask from '../assets/metamask.png'
 import Slider from "react-slick"
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
 
 const data = [
     {
         name: 'Patrick',
         img: Metamask,
-        review: 'lorem ipsum'
+        price: 1000000,
+        unit: 10,
     },
     {
         name: 'Spongebob',
         img: Metamask,
-        review: 'lorem ipsum'
+        price: 1000000,
+        unit: 10,
     },
     {
         name: 'Mr. Krab',
         img: Metamask,
-        review: 'lorem ipsum'
+        price: 1000000,
+        unit: 10,
     },
     {
         name: 'Sandy',
         img: Metamask,
-        review: 'lorem ipsum'
+        price: 1000000,
+        unit: 10,
     },
     {
         name: 'Plankton',
         img: Metamask,
-        review: 'lorem ipsum'
+        price: 1000000,
+        unit: 10,
     },
 ]
 
 function LandingPage() {
     const [loadData, setLoadData] = useState(data);
+    const [isOldestVisible, setIsOldestVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    // Reference for the Oldest section
+    const oldestRef = useRef(null);
+
+    // Intersection Observer API
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            const entry = entries[0];
+            if (entry.isIntersecting) {
+                // setIsOldestVisible(true);  // Trigger render when section is in view
+                setIsLoading(true);  // Stop loading indicator
+                // observer.disconnect();  // Stop observing after it's visible
+
+                setTimeout(() => {
+                    setIsOldestVisible(true);  // Trigger render after delay
+                    setIsLoading(false);  // Stop loading indicator
+                    observer.disconnect();  // Stop observing after it's visible
+                }, 2000);  // 5 seconds delay
+            }
+        });
+
+        if (oldestRef.current) {
+            observer.observe(oldestRef.current);  // Observe the Oldest section
+        }
+
+        return () => {
+            if (oldestRef.current) {
+                observer.disconnect();
+            }
+        };
+    }, []);
 
     const settings = {
         dots: true,
@@ -54,7 +90,7 @@ function LandingPage() {
                 }
             },
             {
-                breakpoint: 600,
+                breakpoint: 720,
                 settings: {
                     slidesToShow: 2,
                     slidesToScroll: 2,
@@ -103,6 +139,8 @@ function LandingPage() {
                     <h1>Transakssi Emisi Karbon Dengan Blockchain</h1>
                     <p className="section-one-article">Emisi Karbon yang dijual di marketplace ini diwakili dengan token, satu token sebanding dengan satu ton emisi karbon</p>
                 </section>
+
+                {/* Newest Section */}
                 <section className="main-section-two">
                     <div className="section-content-one">
                         <h2>Newest</h2>
@@ -110,7 +148,6 @@ function LandingPage() {
                             More
                             <img src={Next} alt="" />
                         </a>
-                        {/* <button>Newest</button> */}
                     </div>
                     <div className="section-content-two">
                         <div className="slider-container">
@@ -123,7 +160,8 @@ function LandingPage() {
 
                                         <div className="card-content">
                                             <p className="card-title">{d.name}</p>
-                                            <p className="card-review">{d.review}</p>
+                                            <p className="card-unit">{d.unit} Token</p>
+                                            <p className="card-price">Rp. {d.price}</p>
                                             <button className="card-button">{d.button} Detail</button>
                                         </div>
                                     </div>
@@ -131,72 +169,42 @@ function LandingPage() {
                             </Slider>
                         </div>
                     </div>
-                    {/* <ul>
-                        <li>
-                            <a href="#">All Categories</a>
-                            <ul className="dropdown">
-                                <li><a href="#">Lorem Ipsum 1</a></li>
-                                <li><a href="#">Lorem Ipsum 2</a></li>
-                                <li><a href="#">Lorem Ipsum 3</a></li>
-                                <li><a href="#">Lorem Ipsum 4</a></li>
-                            </ul>
-                        </li>
-                        <li>
-                            <a href="#">Buy Now</a>
-                            <ul className="dropdown">
-                                <li><a href="#">Lorem Ipsum 1</a></li>
-                                <li><a href="#">Lorem Ipsum 2</a></li>
-                                <li><a href="#">Lorem Ipsum 3</a></li>
-                                <li><a href="#">Lorem Ipsum 4</a></li>
-                            </ul>
-                        </li>
-                    </ul> */}
                 </section>
-                <section className="main-section-two">
+                
+                {/* Oldest Section */}
+                {/* Oldest Section with Conditional Rendering */}
+                <section className="main-section-two" ref={oldestRef}>
                     <div className="section-content-one">
                         <h2>Oldest</h2>
                         <a className="section-sub-content">
                             More
                             <img src={Next} alt="" />
                         </a>
-                        {/* <button>Newest</button> */}
                     </div>
                     <div className="section-content-two">
-                        <div className="slider-container">
-                            <Slider {...settings}>
-                                {data.map((d) => (
-                                    <div key={d.name} className="card">
-                                        <div className="card-image-container">
-                                            <img src={d.img} alt="image" className="card-image" />
+                        {isLoading ? (
+                            <div className="loading">Loading...</div>  // Loading indicator
+                        ) : isOldestVisible ? (
+                            <div className="slider-container">
+                                <Slider {...settings}>
+                                    {data.map((d) => (
+                                        <div key={d.name} className="card">
+                                            <div className="card-image-container">
+                                                <img src={d.img} alt="image" className="card-image" />
+                                            </div>
+                                            <div className="card-content">
+                                                <p className="card-title">{d.name}</p>
+                                                <p className="card-unit">{d.unit} Token</p>
+                                                <p className="card-price">Rp. {d.price}</p>
+                                                <button className="card-button">{d.button} Detail</button>
+                                            </div>
                                         </div>
-
-                                        <div className="card-content">
-                                            <p className="card-title">{d.name}</p>
-                                            <p className="card-review">{d.review}</p>
-                                            <button className="card-button">{d.button} Detail</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </Slider>
-                        </div>
+                                    ))}
+                                </Slider>
+                            </div>
+                        ) : null}
                     </div>
                 </section>
-                {/* <section className="main-section-three">
-                    <div className="section-content-two">
-                        <div key={data.name} className="card">
-                            <div className="card-image-container">
-                                <img src={data.img} alt="image" className="card-image" />
-                            </div>
-
-                            <div className="card-content">
-                                <p className="card-title">{data.name}</p>
-                                <p className="card-review">{data.review}</p>
-                                <button className="card-button">{data.button} Detail</button>
-                            </div>
-                        </div>
-                    </div>
-                    <button onClick={LoadMore}>Load More</button>
-                </section> */}
             </main>
 
             <footer className="footer">
