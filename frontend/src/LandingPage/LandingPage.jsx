@@ -3,6 +3,7 @@ import Cart from '../assets/cart.svg'
 import Next from '../assets/next.svg'
 import Metamask from '../assets/metamask.png'
 import Slider from "react-slick"
+import './LandingPage.scss';
 
 const data = [
     {

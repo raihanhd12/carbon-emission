@@ -1,5 +1,6 @@
 import Cart from '../assets/cart.svg'
 import Metamask from '../assets/metamask.png'
+import './ConnectWallet.scss';
 
 function ConnectWallet() {
     return (

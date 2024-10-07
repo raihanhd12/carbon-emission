@@ -1,5 +1,6 @@
 import Cart from '../assets/cart.svg'
 import Metamask from '../assets/metamask.png'
+import './Explore.scss';
 
 function ConnectWallet() {
     return (
@@ -140,7 +141,6 @@ function ConnectWallet() {
                         Load More
                     </button>
                 </div>
-
             </main>
 
             <footer className="footer">
