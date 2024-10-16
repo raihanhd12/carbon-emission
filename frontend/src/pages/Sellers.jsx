@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { DUMMY_SELLERS, STATUS_COLORS, Seller } from "../constants"; // Import Seller interface
-import Breadcrumb from '../components/Breadcrumb';
+import { DUMMY_SELLERS, STATUS_COLORS } from "../constants"; // Removed Seller interface import
+import Breadcrumb from "../components/Breadcrumb";
 
-interface SellerCardProps {
-  seller: Seller;
-}
-
-const SellerCard: React.FC<SellerCardProps> = ({ seller }) => {
+// No more interfaces, just use plain JavaScript props
+const SellerCard = ({ seller }) => {
   return (
     <Link to={`/dashboard/sellers/${seller.id}`} className="block">
       <div className="bg-zinc-800 rounded-lg shadow-md p-6 mb-4 hover:bg-zinc-700 transition-colors">
@@ -22,15 +19,16 @@ const SellerCard: React.FC<SellerCardProps> = ({ seller }) => {
             : "Pending"}
         </p>
         <p className={`mt-2 font-semibold ${STATUS_COLORS[seller.status]}`}>
-          Status: {seller.status.charAt(0).toUpperCase() + seller.status.slice(1)}
+          Status:{" "}
+          {seller.status.charAt(0).toUpperCase() + seller.status.slice(1)}
         </p>
       </div>
     </Link>
   );
 };
 
-const Sellers: React.FC = () => {
-  const [sellers, setSellers] = useState<Seller[]>(DUMMY_SELLERS); // Ensure type is Seller[]
+const Sellers = () => {
+  const [sellers, setSellers] = useState(DUMMY_SELLERS); // No type annotations in JSX
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 

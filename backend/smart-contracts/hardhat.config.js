@@ -14,7 +14,8 @@ module.exports = {
   },
   networks: {
     besu: {
-      url: "http://127.0.0.1:8545",
+      url: "http://192.168.11.162:8545",
+      // url: "http://127.0.0.1:8545",
       accounts: [
         process.env.PRIVATE_KEY_SUPERADMIN,
       ],

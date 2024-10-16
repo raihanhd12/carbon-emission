@@ -24,6 +24,18 @@
       "client": "besu",
       "rpcUrl": "http://localhost:8548",
       "privateTxUrl": ""
+    },
+    {
+      "name": "validator4",
+      "client": "besu",
+      "rpcUrl": "http://localhost:8549",
+      "privateTxUrl": ""
+    },
+    {
+      "name": "validator5",
+      "client": "besu",
+      "rpcUrl": "http://localhost:8550",
+      "privateTxUrl": ""
     }
   ]
 }

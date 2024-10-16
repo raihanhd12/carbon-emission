@@ -10,14 +10,15 @@
   },
   "dependencies": {
     "@thirdweb-dev/chains": "^0.1.120",
-    "@thirdweb-dev/react": "^4.9.4",
-    "@thirdweb-dev/sdk": "^4.0.99",
     "buffer": "^6.0.3",
-    "ethers": "^5.7.2",
+    "framer-motion": "^11.11.8",
+    "lucide-react": "^0.452.0",
     "react": "^18.3",
     "react-dom": "^18.3",
+    "react-hot-toast": "^2.4.1",
+    "react-query": "^3.39.3",
     "react-router-dom": "^6.26.2",
-    "thirdweb": "^5.61.2"
+    "thirdweb": "^5.61.6"
   },
   "devDependencies": {
     "@truffle/contract-schema": "^3.4.16",

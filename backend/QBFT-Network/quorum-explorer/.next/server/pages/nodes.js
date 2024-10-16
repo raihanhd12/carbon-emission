@@ -425,7 +425,7 @@ module.exports = require("path");
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"algorithm":"qbft","nodes":[{"name":"rpcnode","client":"besu","rpcUrl":"http://localhost:8545","privateTxUrl":""},{"name":"validator1","client":"besu","rpcUrl":"http://localhost:8546","privateTxUrl":""},{"name":"validator2","client":"besu","rpcUrl":"http://localhost:8547","privateTxUrl":""},{"name":"validator3","client":"besu","rpcUrl":"http://localhost:8548","privateTxUrl":""}]}');
+module.exports = JSON.parse('{"algorithm":"qbft","nodes":[{"name":"rpcnode","client":"besu","rpcUrl":"http://localhost:8545","privateTxUrl":""},{"name":"validator1","client":"besu","rpcUrl":"http://localhost:8546","privateTxUrl":""},{"name":"validator2","client":"besu","rpcUrl":"http://localhost:8547","privateTxUrl":""},{"name":"validator3","client":"besu","rpcUrl":"http://localhost:8548","privateTxUrl":""},{"name":"validator4","client":"besu","rpcUrl":"http://localhost:8549","privateTxUrl":""},{"name":"validator5","client":"besu","rpcUrl":"http://localhost:8550","privateTxUrl":""}]}');
 
 /***/ })
 

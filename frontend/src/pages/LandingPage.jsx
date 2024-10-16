@@ -1,17 +1,14 @@
-// src/pages/LandingPage.tsx
-import React, { useState } from 'react';
-import { ConnectButton } from "thirdweb/react";
-import { Navigate } from 'react-router-dom';
-import { client } from "../client";
+import React, { useState } from "react";
+import { Navigate } from "react-router-dom";
 
-const LandingPage: React.FC = () => {
+const LandingPage = () => {
   const [isConnected, setIsConnected] = useState(false);
 
   if (isConnected) {
     return <Navigate to="/dashboard" />;
   }
 
-  const handleConnect = (wallet: any) => {
+  const handleConnect = (wallet) => {
     console.log("Wallet connected:", wallet);
     setIsConnected(true);
   };
