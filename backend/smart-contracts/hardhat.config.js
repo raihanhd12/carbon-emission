@@ -14,8 +14,8 @@ module.exports = {
   },
   networks: {
     besu: {
-      url: "http://192.168.11.162:8545",
-      // url: "http://127.0.0.1:8545",
+      // url: "http://localhost:8545",
+      url: "http://127.0.0.1:8545",
       accounts: [
         process.env.PRIVATE_KEY_SUPERADMIN,
       ],
@@ -36,7 +36,7 @@ module.exports = {
       zksync: true,
     },
     sepolia: { // Add Sepolia network configuration
-      url: "https://rpc.sepolia.org", // Sepolia RPC endpoint
+      url: "https://11155111.rpc.thirdweb.com/d391b93f5f62d9c15f67142e43841acc", // Sepolia RPC endpoint
       accounts: [process.env.PRIVATE_KEY_SUPERADMIN], // Private key from .env file
       chainId: 11155111, // Sepolia's chain ID
     },

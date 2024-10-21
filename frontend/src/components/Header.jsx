@@ -176,7 +176,7 @@ const Header = () => {
                   Dashboard
                 </NavLink>
               ) : (
-                <NavLink to="/dashboard" className={navLinkClass}>
+                <NavLink to="/dashboard/buyer" className={navLinkClass}>
                   Dashboard
                 </NavLink>
               )}
