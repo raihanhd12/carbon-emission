@@ -9,3 +9,12 @@ export const useFetchUserRole = (walletAddress) => {
         params: walletAddress ? [walletAddress] : [],
     });
 };
+
+// Hook to fetch the user information (name and company) using wallet address
+export const useFetchUserInfo = (walletAddress) => {
+    return useReadContract({
+        contract: carbonTokenContract,
+        method: "userDetails",
+        params: walletAddress ? [walletAddress] : [],
+    });
+};

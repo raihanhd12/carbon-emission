@@ -11,23 +11,25 @@ import { useFetchUserRole } from "../contracts/others";
 import { carbonTokenContract } from "../services/carbonTokenContract";
 import { client } from "../services/client";
 import { Toaster, toast } from "react-hot-toast";
+import { X } from "lucide-react";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    name: "",
+    company: "",
+  });
+  const [selectedRole, setSelectedRole] = useState(null);
   const navigate = useNavigate();
 
   const activeAccount = useActiveAccount();
   const walletAddress = activeAccount?.address;
-
   const { mutateAsync: sendTransaction } = useSendTransaction();
-
-  // Fetch the admin address using useFetchAdmin
   const { data: adminAddress, error: adminError } = useFetchAdmin();
-
-  // Fetch the user role using useFetchUserRole
   const { data: roleNumber, error: roleError } =
     useFetchUserRole(walletAddress);
 
@@ -127,12 +129,24 @@ const Header = () => {
 
   const handleRoleSelection = async (role) => {
     try {
+      // Ambil nama dari input user (bisa dari modal atau state)
+      const name = prompt("Enter your name:");
+      if (!name) {
+        toast.error("Name is required.");
+        return;
+      }
+
+      let company = ""; // Untuk buyer tidak ada perusahaan
       const roleIndex = role === "seller" ? 1 : 2; // Seller is 1, Buyer is 2
+
+      if (role === "seller") {
+        company = prompt("Enter your company (optional for buyer):");
+      }
 
       const transaction = prepareContractCall({
         contract: carbonTokenContract,
         method: "userSelectRole",
-        params: [roleIndex],
+        params: [roleIndex, name, company],
       });
 
       await sendTransaction(transaction);
@@ -141,6 +155,56 @@ const Header = () => {
       localStorage.setItem("userRole", role);
       setUserRole(role);
       toast.success(`Role selected: ${role}`);
+    } catch (error) {
+      console.error("Role selection failed:", error);
+      toast.error("Failed to select role. Please try again.");
+    }
+  };
+
+  const handleInitialRoleSelection = (role) => {
+    setSelectedRole(role);
+    if (role === "buyer") {
+      // For buyer, show a simpler form
+      setShowDetailsModal(true);
+      setFormData((prev) => ({ ...prev, company: "" }));
+    } else {
+      // For seller, show the full form
+      setShowDetailsModal(true);
+    }
+    setShowRoleModal(false);
+  };
+
+  const handleSubmitDetails = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (!formData.name) {
+        toast.error("Name is required.");
+        return;
+      }
+
+      if (selectedRole === "seller" && !formData.company) {
+        toast.error("Company name is required for sellers.");
+        return;
+      }
+
+      const roleIndex = selectedRole === "seller" ? 1 : 2;
+
+      const transaction = prepareContractCall({
+        contract: carbonTokenContract,
+        method: "userSelectRole",
+        params: [roleIndex, formData.name, formData.company],
+      });
+
+      await sendTransaction(transaction);
+
+      setShowDetailsModal(false);
+      localStorage.setItem("userRole", selectedRole);
+      setUserRole(selectedRole);
+      toast.success(`Welcome ${formData.name}! Role selected: ${selectedRole}`);
+
+      // Reset form
+      setFormData({ name: "", company: "" });
     } catch (error) {
       console.error("Role selection failed:", error);
       toast.error("Failed to select role. Please try again.");
@@ -271,13 +335,21 @@ const Header = () => {
       {/* Role Selection Modal */}
       {showRoleModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full">
+          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full relative">
+            <button
+              onClick={() => setShowRoleModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+
             <h2 className="text-2xl font-bold mb-6 text-center text-violet-400">
               Choose Your Role
             </h2>
+
             <div className="space-y-4">
               <button
-                onClick={() => handleRoleSelection("seller")}
+                onClick={() => handleInitialRoleSelection("seller")}
                 className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center space-x-2"
               >
                 <svg
@@ -301,7 +373,7 @@ const Header = () => {
               </p>
 
               <button
-                onClick={() => handleRoleSelection("buyer")}
+                onClick={() => handleInitialRoleSelection("buyer")}
                 className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center space-x-2"
               >
                 <svg
@@ -328,7 +400,71 @@ const Header = () => {
         </div>
       )}
 
-      {/* Toast container */}
+      {/* Details Modal */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full relative">
+            <button
+              onClick={() => {
+                setShowDetailsModal(false);
+                setShowRoleModal(true);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+
+            <h2 className="text-2xl font-bold mb-6 text-center text-violet-400">
+              Complete Your Profile
+            </h2>
+
+            <form onSubmit={handleSubmitDetails} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="w-full px-4 py-2 rounded-lg bg-zinc-700 text-white border border-zinc-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                  placeholder="Enter your full name"
+                />
+              </div>
+
+              {selectedRole === "seller" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.company}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        company: e.target.value,
+                      }))
+                    }
+                    className="w-full px-4 py-2 rounded-lg bg-zinc-700 text-white border border-zinc-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                    placeholder="Enter your company name"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full bg-violet-600 text-white px-6 py-3 rounded-lg hover:bg-violet-700 transition duration-300"
+              >
+                Complete Registration
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <Toaster
         position="top-center"
         reverseOrder={false}

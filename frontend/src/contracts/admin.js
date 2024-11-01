@@ -6,13 +6,13 @@ import { carbonTokenContract } from "../services/carbonTokenContract";
 export const useVerifyCarbon = () => {
     const { mutateAsync: sendTransaction } = useSendTransaction();
 
-    const verifyCarbonSubmission = async (seller, submissionId, verifiedAmount, onError) => {
+    const verifyCarbonSubmission = async (seller, submissionId, verifiedAmount, verifiedPricePerTon, onError) => {
         try {
             // Prepare the contract call
             const transaction = prepareContractCall({
                 contract: carbonTokenContract,
                 method: "verifyCarbon",
-                params: [seller, submissionId, verifiedAmount],
+                params: [seller, submissionId, verifiedAmount, verifiedPricePerTon], // Updated params to include verifiedPricePerTon
             });
 
             // Send the transaction using sendTransaction

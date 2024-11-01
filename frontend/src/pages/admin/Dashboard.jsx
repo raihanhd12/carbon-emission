@@ -17,7 +17,7 @@ const Dashboard = () => {
       );
       console.error("Submissions Error:", submissionsError);
     } else if (submissionsData) {
-      console.log("Submissions Data:", submissionsData); // Add this line to inspect the data structure
+      console.log("Submissions Data:", submissionsData); // Inspect the data structure
       const processedSubmissions = submissionsData.map((submission, index) => ({
         submissionId: submission.id ? submission.id.toString() : `ID-${index}`, // Use index as a fallback ID
         seller: submission.seller,

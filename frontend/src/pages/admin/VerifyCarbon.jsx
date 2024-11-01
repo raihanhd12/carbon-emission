@@ -3,19 +3,26 @@ import { useVerifyCarbon } from "../../contracts/admin"; // Use the hook from ad
 
 const VerifyCarbon = ({ submission, onVerify, onError }) => {
   const [verifiedAmount, setVerifiedAmount] = useState(submission.amount);
+  const [verifiedPricePerTon, setVerifiedPricePerTon] = useState(""); // New state for verified price per ton
   const [loading, setLoading] = useState(false);
 
   const { verifyCarbonSubmission } = useVerifyCarbon(); // Call the hook to verify
 
   const handleVerify = async (e) => {
     e.preventDefault();
+
     if (!verifiedAmount) {
       onError("Verified amount is required.");
       return;
     }
 
+    if (!verifiedPricePerTon) {
+      onError("Verified price per ton is required.");
+      return;
+    }
+
     if (Number(verifiedAmount) > Number(submission.amount)) {
-      onError("Verified amount cannot exceed submitted amount");
+      onError("Verified amount cannot exceed submitted amount.");
       return;
     }
 
@@ -26,6 +33,7 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
         submission.seller,
         submission.submissionId,
         verifiedAmount,
+        verifiedPricePerTon, // Pass the verified price per ton as an argument
         onError
       );
 
@@ -43,6 +51,14 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
         onChange={(e) => setVerifiedAmount(e.target.value)}
         placeholder="Verified Amount"
         max={submission.amount}
+        min="0"
+        className="px-3 py-2 bg-zinc-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+      <input
+        type="number"
+        value={verifiedPricePerTon}
+        onChange={(e) => setVerifiedPricePerTon(e.target.value)}
+        placeholder="Verified Price per Ton"
         min="0"
         className="px-3 py-2 bg-zinc-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
       />
