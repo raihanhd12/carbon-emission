@@ -29,6 +29,7 @@ start_node() {
             --genesis-file="${NODE_DIR}/../genesis.json" \
             --p2p-port=${P2P_PORT} \
             --rpc-http-enabled \
+            --rpc-http-host="0.0.0.0" \
             --rpc-http-api=EEA,WEB3,ETH,NET,TRACE,DEBUG,ADMIN,TXPOOL,PERM,QBFT \
             --host-allowlist="*" \
             --rpc-http-port=${RPC_HTTP_PORT} \
@@ -40,6 +41,7 @@ start_node() {
             --bootnodes="$(cat $BOOTNODES_FILE)" \
             --p2p-port=${P2P_PORT} \
             --rpc-http-enabled \
+            --rpc-http-host="0.0.0.0" \
             --rpc-http-api=EEA,WEB3,ETH,NET,TRACE,DEBUG,ADMIN,TXPOOL,PERM,QBFT \
             --host-allowlist="*" \
             --rpc-http-port=${RPC_HTTP_PORT} \
