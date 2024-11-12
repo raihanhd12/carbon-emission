@@ -2,28 +2,23 @@ import { ethers } from "ethers";
 import { carbonTokenABI } from "../services/carbonTokenABI"; // Import ABI
 
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS; // Get contract address from env
-
-// Manually create an Ethers.js provider using the localhost RPC
 const PROVIDER_URL = "http://127.0.0.1:8545"; // Adjust this if you're on a different network
 const provider = new ethers.providers.JsonRpcProvider(PROVIDER_URL);
 
-// Function to get CarbonSubmitted events using ethers.js
+// Function to get CarbonSubmitted events
 export const getCarbonSubmittedEvents = async () => {
   try {
-    // Create an Ethers.js contract instance using ABI, contract address, and provider
     const contract = new ethers.Contract(CONTRACT_ADDRESS, carbonTokenABI, provider);
-
-    // Fetch 'CarbonSubmitted' events
     const filter = contract.filters.CarbonSubmitted();
 
-    // Get the logs from the blockchain
+    // Use provider.getLogs with a specific block range and topics to ensure correct retrieval
     const logs = await provider.getLogs({
-      ...filter,
-      fromBlock: 0, // Start from the genesis block
-      toBlock: "latest", // Fetch up to the latest block
+      address: CONTRACT_ADDRESS,
+      topics: filter.topics,
+      fromBlock: 0,
+      toBlock: "latest",
     });
 
-    // Parse the logs to extract the event data
     const parsedEvents = logs.map((log) => {
       const parsedLog = contract.interface.parseLog(log);
       return {
@@ -37,9 +32,43 @@ export const getCarbonSubmittedEvents = async () => {
       };
     });
 
-    return parsedEvents; // Return the parsed event data
+    return parsedEvents;
   } catch (error) {
     console.error("Error fetching CarbonSubmitted events:", error);
+    throw error;
+  }
+};
+
+// Function to get CarbonVerified events
+export const getCarbonVerifiedEvents = async () => {
+  try {
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, carbonTokenABI, provider);
+    const filter = contract.filters.CarbonVerified();
+
+    const logs = await provider.getLogs({
+      address: CONTRACT_ADDRESS,
+      topics: filter.topics,
+      fromBlock: 0,
+      toBlock: "latest",
+    });
+
+    const parsedEvents = logs.map((log) => {
+      const parsedLog = contract.interface.parseLog(log);
+      return {
+        transactionHash: log.transactionHash,
+        verifier: parsedLog.args.verifier,
+        seller: parsedLog.args.seller,
+        id: parsedLog.args.id.toString(),
+        verifiedAmount: parsedLog.args.verifiedAmount.toString(),
+        verifiedPrice: parsedLog.args.verifiedPrice.toString(),
+        timestamp: new Date(parsedLog.args.timestamp.toNumber() * 1000).toLocaleString(),
+        blockNumber: log.blockNumber,
+      };
+    });
+
+    return parsedEvents;
+  } catch (error) {
+    console.error("Error fetching CarbonVerified events:", error);
     throw error;
   }
 };

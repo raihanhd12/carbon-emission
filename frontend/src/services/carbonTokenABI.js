@@ -249,6 +249,29 @@ export const carbonTokenABI = [
     "inputs": [
       {
         "internalType": "address",
+        "name": "seller",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "submissionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amountToBuy",
+        "type": "uint256"
+      }
+    ],
+    "name": "buyTokens",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "",
         "type": "address"
       },
@@ -338,29 +361,32 @@ export const carbonTokenABI = [
   },
   {
     "inputs": [],
+    "name": "getAllSellers",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getAllSubmissions",
     "outputs": [
       {
         "components": [
           {
+            "internalType": "address",
+            "name": "seller",
+            "type": "address"
+          },
+          {
             "internalType": "uint256",
             "name": "id",
             "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "amount",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "pricePerTon",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bool",
-            "name": "verified",
-            "type": "bool"
           },
           {
             "internalType": "uint256",
@@ -378,7 +404,7 @@ export const carbonTokenABI = [
             "type": "uint256"
           }
         ],
-        "internalType": "struct CarbonToken.CarbonSubmission[]",
+        "internalType": "struct CarbonToken.VerifiedSubmission[]",
         "name": "",
         "type": "tuple[]"
       }
@@ -409,6 +435,11 @@ export const carbonTokenABI = [
           },
           {
             "internalType": "uint256",
+            "name": "pricePerTon",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
             "name": "timestamp",
             "type": "uint256"
           }
@@ -416,6 +447,50 @@ export const carbonTokenABI = [
         "internalType": "struct CarbonToken.UnverifiedSubmission[]",
         "name": "",
         "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "seller",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "submissionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSubmissionDetails",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "pricePerTon",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "date",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "verifiedPricePerTon",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isVerified",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -591,6 +666,55 @@ export const carbonTokenABI = [
         "internalType": "string",
         "name": "",
         "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenCertificates",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "buyer",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "pricePerTon",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "uniqueTokenCode",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

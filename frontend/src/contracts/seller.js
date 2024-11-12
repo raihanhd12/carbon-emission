@@ -7,31 +7,18 @@ export const useSubmitCarbon = () => {
 
     const submitCarbon = async (amount, pricePerTon, onError) => {
         try {
-            console.log("Submitting amount:", amount, "and price:", pricePerTon); // Log to verify
+            console.log("Submitting amount:", amount.toString(), "and price in Wei:", pricePerTon.toString());
 
-            // Ensure that amount and pricePerTon are valid numbers
-            if (
-                typeof amount !== "number" ||
-                isNaN(amount) ||
-                amount <= 0 ||
-                typeof pricePerTon !== "number" ||
-                isNaN(pricePerTon) ||
-                pricePerTon <= 0
-            ) {
+            if (amount <= 0n || pricePerTon <= 0n) {
                 throw new Error("Invalid amount or price provided");
             }
 
-            const amountInBigInt = BigInt(amount); // Convert valid number to BigInt
-            const priceInBigInt = BigInt(pricePerTon); // Convert price to BigInt
-
-            // Prepare the contract call
             const transaction = prepareContractCall({
                 contract: carbonTokenContract,
                 method: "submitCarbon",
-                params: [amountInBigInt, priceInBigInt], // Pass both values as BigInt
+                params: [amount, pricePerTon],
             });
 
-            // Send the transaction
             await sendTransaction(transaction);
             return true;
         } catch (error) {
@@ -53,3 +40,21 @@ export const useFetchSubmissionsForSeller = (address) => {
         watch: true, // Auto-refresh when the contract data changes
     });
 };
+
+export const useFetchVerifiedSubmissionsForSeller = (address) => {
+    return useReadContract({
+        contract: carbonTokenContract,
+        method: "getVerifiedSubmissionsForSeller",
+        params: address ? [address] : [],
+        watch: true, // Auto-refresh when the contract data changes
+    });
+}
+
+export const useFetchSubmissionDetails = (address, submissionId) => {
+    return useReadContract({
+        contract: carbonTokenContract,
+        method: "getSubmissionDetails",
+        params: [address, submissionId],
+        watch: true, // Auto-refresh when the contract data changes
+    });
+}

@@ -28,7 +28,7 @@ export function App() {
             <Route path="/dashboard/buyer/" element={<BuyerDashboard />} />
             <Route path="/dashboard/buyer/sellers" element={<Sellers />} />
             <Route
-              path="/dashboard/buyer/sellers/:id"
+              path="/dashboard/buyer/sellers/:id/:submissionId"
               element={<SellerDetail />}
             />
           </Routes>

@@ -1,45 +1,61 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { DUMMY_SELLERS, STATUS_COLORS } from "../../constants"; // Removed Seller interface import
+import {
+  useFetchAllSellers,
+  useFetchAllSubmission,
+} from "../../contracts/buyer";
 import Breadcrumb from "../../components/Breadcrumb";
 
-// No more interfaces, just use plain JavaScript props
+// SellerCard Component
 const SellerCard = ({ seller }) => {
   return (
-    <Link to={`/dashboard/buyer/sellers/${seller.id}`} className="block">
+    <Link to={`/dashboard/buyer/sellers/${seller.seller}`} className="block">
       <div className="bg-zinc-800 rounded-lg shadow-md p-6 mb-4 hover:bg-zinc-700 transition-colors">
         <h3 className="text-xl font-semibold text-violet-400 mb-2">
-          {seller.name}
+          Seller Address: {seller.seller}
         </h3>
-        <p className="text-zinc-300">Emission: {seller.emissionAmount} tons</p>
         <p className="text-zinc-300">
-          Verified:{" "}
-          {seller.verifiedAmount !== null
-            ? `${seller.verifiedAmount} tons`
-            : "Pending"}
+          Emission: {seller.verifiedAmount.toString()} tons
         </p>
-        <p className={`mt-2 font-semibold ${STATUS_COLORS[seller.status]}`}>
-          Status:{" "}
-          {seller.status.charAt(0).toUpperCase() + seller.status.slice(1)}
+        <p className="text-zinc-300">
+          Verified Price: {seller.verifiedPrice.toString()} Wei
         </p>
+        <p className="text-zinc-300">
+          Submission Date:{" "}
+          {new Date(Number(seller.timestamp) * 1000).toLocaleDateString()}
+        </p>
+        <p className={`mt-2 font-semibold text-green-400`}>Status: Verified</p>
       </div>
     </Link>
   );
 };
 
 const Sellers = () => {
-  const [sellers, setSellers] = useState(DUMMY_SELLERS); // No type annotations in JSX
+  const [sellers, setSellers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // Fetch all submissions (which include seller details)
+  const {
+    data: allSubmissions,
+    error: submissionsError,
+    isLoading: submissionsLoading,
+  } = useFetchAllSubmission();
+
+  // Fetch sellers from contract and update state
   useEffect(() => {
-    const filteredSellers = DUMMY_SELLERS.filter(
-      (seller) =>
-        seller.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        (statusFilter === "all" || seller.status === statusFilter)
-    );
-    setSellers(filteredSellers);
-  }, [searchTerm, statusFilter]);
+    if (allSubmissions) {
+      setSellers(allSubmissions);
+    }
+  }, [allSubmissions]);
+
+  // Filter sellers based on search term and status
+  const filteredSellers = sellers.filter(
+    (seller) =>
+      seller.seller.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      (statusFilter === "all" ||
+        (statusFilter === "verified" && seller.verifiedAmount > 0))
+  );
 
   return (
     <div className="py-10 px-4">
@@ -61,21 +77,27 @@ const Sellers = () => {
           className="p-2 rounded bg-zinc-700 text-white"
         >
           <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
           <option value="verified">Verified</option>
-          <option value="rejected">Rejected</option>
         </select>
       </div>
 
+      {/* Loading and Error States */}
+      {submissionsLoading && (
+        <p className="text-gray-400">Loading sellers...</p>
+      )}
+      {submissionsError && (
+        <p className="text-red-500">Error fetching submissions data.</p>
+      )}
+
       {/* Sellers Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sellers.map((seller) => (
-          <SellerCard key={seller.id} seller={seller} />
+        {filteredSellers.map((seller, index) => (
+          <SellerCard key={index} seller={seller} />
         ))}
       </div>
 
       {/* No Results Message */}
-      {sellers.length === 0 && (
+      {filteredSellers.length === 0 && (
         <p className="text-zinc-300 text-center mt-6">
           No sellers found matching your criteria.
         </p>

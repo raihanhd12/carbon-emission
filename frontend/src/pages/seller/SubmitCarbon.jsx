@@ -8,7 +8,7 @@ const SubmitCarbon = ({
   onError,
 }) => {
   const [amount, setAmount] = useState("");
-  const [pricePerTon, setPricePerTon] = useState(""); // New state for price per ton
+  const [pricePerTon, setPricePerTon] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { submitCarbon } = useSubmitCarbon();
@@ -16,22 +16,15 @@ const SubmitCarbon = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    console.log("Submitted amount:", amount, "Price per ton:", pricePerTon); // Debugging: Check what's being captured from input
-
     if (!amount || !pricePerTon) {
       onError("Carbon amount and price per ton are required.");
       return;
     }
 
-    const parsedAmount = Number(amount); // Parse to a number
-    const parsedPrice = Number(pricePerTon); // Parse price to a number
+    const parsedAmount = BigInt(Number(amount));
+    const parsedPrice = BigInt(Number(pricePerTon)); // Input langsung dalam bentuk Wei
 
-    if (
-      isNaN(parsedAmount) ||
-      parsedAmount <= 0 ||
-      isNaN(parsedPrice) ||
-      parsedPrice <= 0
-    ) {
+    if (parsedAmount <= 0n || parsedPrice <= 0n) {
       onError("Carbon amount and price per ton must be greater than zero.");
       return;
     }
@@ -45,12 +38,11 @@ const SubmitCarbon = ({
 
     try {
       setLoading(true);
-
-      // Pass parsed amount and price to onSubmit
-      await onSubmit(parsedAmount, parsedPrice);
-
-      setAmount(""); // Clear the input field after submission
-      setPricePerTon(""); // Clear the price field after submission
+      const success = await onSubmit(parsedAmount, parsedPrice);
+      if (success) {
+        setAmount("");
+        setPricePerTon("");
+      }
     } finally {
       setLoading(false);
     }
@@ -82,14 +74,14 @@ const SubmitCarbon = ({
           htmlFor="pricePerTon"
           className="block text-sm font-medium text-white"
         >
-          Price per Ton (in your currency)
+          Price per Ton (in Wei)
         </label>
         <input
           type="number"
           id="pricePerTon"
           value={pricePerTon}
           onChange={(e) => setPricePerTon(e.target.value)}
-          placeholder="Enter price per ton"
+          placeholder="Enter price per ton in Wei"
           className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-black"
           required
           disabled={hasUnverifiedSubmission}

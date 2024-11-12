@@ -1,140 +1,88 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useActiveAccount } from "thirdweb/react";
 import SubmitCarbon from "./SubmitCarbon";
 import { toast } from "react-hot-toast";
 import {
   useSubmitCarbon,
   useFetchSubmissionsForSeller,
+  useFetchSubmissionDetails,
 } from "../../contracts/seller";
 import { useFetchUserInfo } from "../../contracts/others";
-import { getCarbonSubmittedEvents } from "../../contracts/events"; // Update import
 
 const Dashboard = () => {
   const activeAccount = useActiveAccount();
   const address = activeAccount?.address;
 
-  const [recentSubmission, setRecentSubmission] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
+  const [submissionId, setSubmissionId] = useState(null);
 
-  const [carbonEvents, setCarbonEvents] = useState([]); // State to store CarbonSubmitted events
+  // Fetch submissions details directly using the smart contract getter
+  const {
+    data: submissionDetails,
+    error: submissionDetailsError,
+    isLoading: submissionDetailsLoading,
+  } = useFetchSubmissionDetails(address, submissionId);
 
-  // Fetch contract submissions for the logged-in address using the new hook
+  // Fetch submissions directly using the smart contract getter
   const {
     data: contractSubmissions,
     error: submissionsError,
     isLoading: submissionsLoading,
   } = useFetchSubmissionsForSeller(address);
 
-  // Fetch user info using the new hook
+  // Fetch user info
   const { data: userInfoData, error: userInfoError } =
     useFetchUserInfo(address);
 
   const { submitCarbon } = useSubmitCarbon();
 
-  const formatAddress = (address) => {
-    if (!address) return "";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+  const formatAddress = (addr) =>
+    addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("en-US", {
+  const formatPrice = (priceInWei) => {
+    const priceInEth = Number(priceInWei) / 1e18; // Convert Wei to ETH
+    return new Intl.NumberFormat("id-ID", {
       style: "currency",
-      currency: "USD",
-    }).format(price);
+      currency: "IDR",
+    }).format(priceInEth); // Format in IDR
   };
 
-  // Handle errors
   useEffect(() => {
-    if (submissionsError) {
-      toast.error("Error fetching submissions. Please try again later.");
-      console.error("Submissions Error:", submissionsError);
+    // Check if contractSubmissions has data and set the first submissionId if not set
+    if (contractSubmissions && contractSubmissions.length > 0) {
+      const firstSubmissionId = contractSubmissions[0].id;
+      if (!submissionId) {
+        setSubmissionId(firstSubmissionId); // Set submissionId to the first one if not set
+      }
     }
-    if (userInfoError) {
-      toast.error("Error fetching user information.");
-      console.error("User Info Error:", userInfoError);
-    }
-  }, [submissionsError, userInfoError]);
+  }, [contractSubmissions, submissionId, submissionDetails, address]);
 
-  // Process user info
+  useEffect(() => {
+    if (contractSubmissions && contractSubmissions.length > 0) {
+      // Urutkan contractSubmissions secara menurun berdasarkan ID
+      const sortedSubmissions = [...contractSubmissions].sort(
+        (a, b) => Number(b.id) - Number(a.id)
+      );
+      const latestSubmission = sortedSubmissions[0];
+      setSubmissionId(latestSubmission.id);
+    }
+  }, [contractSubmissions]);
+
   useEffect(() => {
     if (userInfoData && userInfoData.length >= 2) {
-      setUserInfo({
-        name: userInfoData[0], // Name is the first element
-        company: userInfoData[1], // Company is the second element
-      });
+      setUserInfo({ name: userInfoData[0], company: userInfoData[1] });
     }
   }, [userInfoData]);
 
-  // Fetch and display 'CarbonSubmitted' events using ethers.js
-  useEffect(() => {
-    const fetchCarbonEvents = async () => {
-      try {
-        const events = await getCarbonSubmittedEvents(); // Fetch the events
-        setCarbonEvents(events); // Set the events in state
-      } catch (error) {
-        toast.error("Error fetching CarbonSubmitted events.");
-        console.error("Error fetching events:", error);
-      }
-    };
+  if (submissionsError) {
+    toast.error("Error fetching submissions. Please try again later.");
+    console.error("Submissions Error:", submissionsError);
+  }
 
-    fetchCarbonEvents();
-  }, []);
-
-  // Previous useEffect for submissions remains the same
-  useEffect(() => {
-    if (contractSubmissions && contractSubmissions.length > 0) {
-      const processedSubmissions = contractSubmissions.map((submission) => ({
-        id: submission.id.toString(),
-        amount: submission.amount.toString(),
-        verified: submission.verified,
-        verifiedAmount: submission.verifiedAmount.toString(),
-        timestamp: new Date(
-          Number(submission.timestamp.toString()) * 1000
-        ).toLocaleString(),
-      }));
-
-      const latestSubmission =
-        processedSubmissions[processedSubmissions.length - 1];
-      setRecentSubmission(latestSubmission);
-
-      if (latestSubmission && !latestSubmission.verified) {
-        toast("Your latest submission is pending verification.", {
-          icon: "🔔",
-          style: { borderRadius: "10px", background: "#333", color: "#fff" },
-        });
-      }
-    }
-  }, [contractSubmissions]);
-
-  // Previous useMemo calculations remain the same
-  const totalSubmitted = useMemo(() => {
-    return (
-      contractSubmissions?.reduce(
-        (total, submission) => total + Number(submission.amount.toString()),
-        0
-      ) || 0
-    );
-  }, [contractSubmissions]);
-
-  const totalVerified = useMemo(() => {
-    return (
-      contractSubmissions?.reduce(
-        (total, submission) =>
-          total + Number(submission.verifiedAmount.toString()),
-        0
-      ) || 0
-    );
-  }, [contractSubmissions]);
-
-  const pendingVerification = useMemo(() => {
-    return (
-      contractSubmissions?.reduce(
-        (total, submission) =>
-          !submission.verified ? total + Number(submission.amount) : total,
-        0
-      ) || 0
-    );
-  }, [contractSubmissions]);
+  if (userInfoError) {
+    toast.error("Error fetching user information.");
+    console.error("User Info Error:", userInfoError);
+  }
 
   if (!address) {
     return (
@@ -197,23 +145,23 @@ const Dashboard = () => {
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Total Submitted:</span>
               <span className="text-violet-400 font-bold">
-                {totalSubmitted || 0} tons
+                {contractSubmissions?.reduce(
+                  (total, sub) => total + Number(sub.amount),
+                  0
+                ) || 0}{" "}
+                tons
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Total Verified:</span>
               <span className="text-green-400 font-bold">
-                {totalVerified || 0} tons
+                {contractSubmissions?.reduce(
+                  (total, sub) => total + Number(sub.verifiedAmount),
+                  0
+                ) || 0}{" "}
+                tons
               </span>
             </div>
-            {pendingVerification > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">Pending Verification:</span>
-                <span className="text-yellow-400 font-bold">
-                  {pendingVerification || 0} tons
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -224,60 +172,62 @@ const Dashboard = () => {
           <SubmitCarbon
             address={address}
             hasUnverifiedSubmission={
-              recentSubmission && !recentSubmission.verified
+              contractSubmissions &&
+              contractSubmissions.length > 0 &&
+              !contractSubmissions[contractSubmissions.length - 1].verified
             }
             onSubmit={async (parsedAmount, parsedPrice) => {
               const success = await submitCarbon(
                 parsedAmount,
                 parsedPrice,
-                (errorMessage) => {
-                  toast.error(errorMessage);
-                }
+                (error) => toast.error(error)
               );
-              if (success) {
-                toast.success("Carbon submission successful!");
-              }
+              if (success) toast.success("Carbon submission successful!");
             }}
           />
         </div>
       </div>
 
+      {/* Recent Submissions */}
       <div className="bg-zinc-800 p-6 rounded-lg shadow-lg mt-8">
         <h2 className="text-xl font-semibold mb-4 text-violet-300">
           Recent Submission Status
         </h2>
-        {recentSubmission ? (
+        {contractSubmissions && contractSubmissions.length > 0 ? (
           <div className="space-y-2">
+            {/* Ambil data dari submission pertama (yang terbaru) */}
             <div className="flex justify-between items-center">
               <span className="text-gray-300">
                 Most Recent Submission Amount:
               </span>
               <span className="text-violet-400 font-bold">
-                {recentSubmission.amount} tons
+                {contractSubmissions[0].amount.toString()} tons
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Verified Amount:</span>
               <span className="text-green-400 font-bold">
-                {recentSubmission.verifiedAmount} tons
+                {contractSubmissions[0].verifiedAmount.toString()} tons
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Submission Status:</span>
               <span
                 className={
-                  recentSubmission.verified
+                  contractSubmissions[0].verified
                     ? "text-green-400 font-bold"
                     : "text-yellow-400 font-bold"
                 }
               >
-                {recentSubmission.verified ? "Verified" : "Pending"}
+                {contractSubmissions[0].verified ? "Verified" : "Pending"}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300">Submission Date:</span>
               <span className="text-violet-400 font-bold">
-                {recentSubmission.timestamp}
+                {new Date(
+                  Number(contractSubmissions[0].timestamp) * 1000
+                ).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -285,13 +235,13 @@ const Dashboard = () => {
           <p className="text-gray-400">No recent submissions found.</p>
         )}
       </div>
+
+      {/* Submission Details Table */}
       <div className="bg-zinc-800 p-6 rounded-lg shadow-lg mt-8">
         <h2 className="text-xl font-semibold mb-4 text-violet-300">
-          Carbon Submitted Events
+          All Submission
         </h2>
-        {carbonEvents.length === 0 ? (
-          <p className="text-gray-400">No events found.</p>
-        ) : (
+        {contractSubmissions && contractSubmissions.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-zinc-700">
               <thead>
@@ -300,19 +250,16 @@ const Dashboard = () => {
                     ID
                   </th>
                   <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Transaction
-                  </th>
-                  <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Seller
-                  </th>
-                  <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Amount
                   </th>
                   <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Price/Ton
+                    Price Per Ton
                   </th>
                   <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                    Block
+                    Verified Price
+                  </th>
+                  <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    Status
                   </th>
                   <th className="px-4 py-3 bg-zinc-900 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                     Date
@@ -320,50 +267,54 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-700">
-                {carbonEvents.map((event, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-zinc-700 transition-colors duration-150"
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
-                      #{event.id}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      <a
-                        href={`https://etherscan.io/tx/${event.transactionHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-violet-400 hover:text-violet-300 font-mono"
-                      >
-                        {formatAddress(event.transactionHash)}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      <span className="text-gray-300 font-mono">
-                        {formatAddress(event.seller)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      <span className="text-green-400 font-semibold">
-                        {event.amount} tons
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      <span className="text-violet-400">
-                        {formatPrice(event.pricePerTon)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                      {event.blockNumber}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
-                      {event.timestamp}
-                    </td>
-                  </tr>
-                ))}
+                {contractSubmissions
+                  .sort((a, b) => Number(b.id) - Number(a.id)) // Sort by descending ID
+                  .map((submission, index) => (
+                    <tr
+                      key={index}
+                      className="hover:bg-zinc-700 transition-colors duration-150"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
+                        {submission.id.toString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-white">
+                        {submission.amount.toString()} tons
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-violet-400">
+                        {submission.pricePerTon.toString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-green-400">
+                        {submission.verifiedPrice ? (
+                          submission.verifiedPrice.toString()
+                        ) : (
+                          <span className="text-yellow-400 font-bold">
+                            Pending
+                          </span>
+                        )}{" "}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {submission.verified ? (
+                          <span className="text-green-400 font-bold">
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="text-yellow-400 font-bold">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-300">
+                        {new Date(
+                          Number(submission.timestamp) * 1000
+                        ).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <p className="text-gray-400">No submission details found.</p>
         )}
       </div>
     </div>

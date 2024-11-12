@@ -1,34 +1,95 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { DUMMY_SELLERS, STATUS_COLORS } from "../../constants";
+import { useFetchSubmissionDetails } from "../../contracts/buyer"; // Import hook
 import Breadcrumb from "../../components/Breadcrumb";
 
 const SellerDetail = () => {
-  const { id } = useParams(); // No need for type annotations in JSX
-  const seller = DUMMY_SELLERS.find((s) => s.id === id);
+  const { id: sellerAddress, submissionId } = useParams(); // Ambil `sellerAddress` dan `submissionId` dari URL
+  const [submission, setSubmission] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!seller) {
-    return <div className="text-zinc-300">Seller not found</div>;
+  // Fetch submission detail berdasarkan `sellerAddress` dan `submissionId`
+  const {
+    data: submissionDetails,
+    error: fetchError,
+    isLoading,
+  } = useFetchSubmissionDetails(sellerAddress, submissionId);
+
+  useEffect(() => {
+    console.log("Seller Address:", sellerAddress);
+    console.log("Submission ID:", submissionId);
+
+    if (fetchError) {
+      console.error("Error fetching submission details:", fetchError);
+      setError(fetchError);
+    }
+
+    if (submissionDetails) {
+      console.log("Fetched submission details:", submissionDetails);
+      setSubmission(submissionDetails);
+      setLoading(false);
+    }
+  }, [submissionDetails, fetchError, sellerAddress, submissionId]);
+
+  if (isLoading || loading) {
+    return <p className="text-gray-400">Loading submission data...</p>;
   }
+
+  if (error) {
+    return (
+      <div className="text-red-500">
+        Error fetching data: {error.message || "Unknown error"}
+      </div>
+    );
+  }
+
+  if (!submission) {
+    return (
+      <div className="text-zinc-300">
+        Submission not found for this ID: {submissionId}
+      </div>
+    );
+  }
+
+  // **Validasi sebelum memanggil `.toString()`**
+  const { id, amount, verifiedAmount, verifiedPrice, timestamp, verified } =
+    submission || {};
 
   return (
     <div className="py-10 px-4">
       <Breadcrumb />
-      <h2 className="text-3xl font-bold mb-6 text-zinc-100">{seller.name}</h2>
-      <div className="bg-zinc-800 rounded-lg shadow-md p-6">
-        <p className="text-zinc-300 mb-2">ID: {seller.id}</p>
+      <h2 className="text-3xl font-bold mb-6 text-zinc-100">
+        Submission Details
+      </h2>
+      <div className="bg-zinc-800 rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-xl font-semibold text-violet-400 mb-4">
+          Seller Address: {sellerAddress}
+        </h3>
         <p className="text-zinc-300 mb-2">
-          Emission Amount: {seller.emissionAmount} tons
+          Submission ID: {id?.toString() || "N/A"}
         </p>
         <p className="text-zinc-300 mb-2">
-          Verified Amount:{" "}
-          {seller.verifiedAmount !== null
-            ? `${seller.verifiedAmount} tons`
-            : "Pending"}
+          Emission Amount: {amount?.toString() || "N/A"} tons
         </p>
-        <p className={`mb-4 font-semibold ${STATUS_COLORS[seller.status]}`}>
-          Status:{" "}
-          {seller.status.charAt(0).toUpperCase() + seller.status.slice(1)}
+        <p className="text-zinc-300 mb-2">
+          Verified Amount: {verifiedAmount?.toString() || "N/A"} tons
+        </p>
+        <p className="text-zinc-300 mb-2">
+          Verified Price: {verifiedPrice?.toString() || "N/A"} Wei
+        </p>
+        <p className="text-zinc-300 mb-2">
+          Submission Date:{" "}
+          {timestamp
+            ? new Date(Number(timestamp) * 1000).toLocaleDateString()
+            : "N/A"}
+        </p>
+        <p
+          className={`mb-4 font-semibold ${
+            verified ? "text-green-400" : "text-yellow-400"
+          }`}
+        >
+          Status: {verified ? "Verified" : "Pending"}
         </p>
         <Link
           to="/dashboard/buyer/sellers"

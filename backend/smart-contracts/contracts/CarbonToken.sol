@@ -20,9 +20,30 @@ contract CarbonToken is ERC20 {
         address seller;
         uint256 id;
         uint256 amount;
+        uint256 pricePerTon;
         uint256 timestamp;
     }
 
+    struct VerifiedSubmission {
+        address seller;
+        uint256 id;
+        uint256 verifiedAmount;
+        uint256 verifiedPrice;
+        uint256 timestamp;
+    }
+
+    // Struct to store unique token details for certificates
+    struct TokenCertificate {
+        address buyer;
+        uint256 amount;
+        uint256 pricePerTon;
+        string uniqueTokenCode;
+        uint256 timestamp;
+    }
+
+    // Mapping to track certificates by submission ID and buyer
+    mapping(uint256 => mapping(address => TokenCertificate[]))
+        public tokenCertificates;
     mapping(address => CarbonSubmission[]) public carbonSubmissions;
     mapping(address => bool) public hasUnverifiedSubmission;
 
@@ -247,6 +268,7 @@ contract CarbonToken is ERC20 {
                         seller: seller,
                         id: submission.id,
                         amount: submission.amount,
+                        pricePerTon: submission.pricePerTon,
                         timestamp: submission.timestamp
                     });
                     index++;
@@ -261,7 +283,7 @@ contract CarbonToken is ERC20 {
     function getAllSubmissions()
         external
         view
-        returns (CarbonSubmission[] memory)
+        returns (VerifiedSubmission[] memory)
     {
         uint256 totalVerified = 0;
 
@@ -270,26 +292,37 @@ contract CarbonToken is ERC20 {
             address seller = sellers[i];
             CarbonSubmission[] storage submissions = carbonSubmissions[seller];
             for (uint256 j = 0; j < submissions.length; j++) {
-                if (submissions[j].verified) {
+                if (
+                    submissions[j].verified && submissions[j].verifiedAmount > 0
+                ) {
                     totalVerified++;
                 }
             }
         }
 
-        // Create an array to store all verified submissions
-        CarbonSubmission[] memory verifiedSubmissions = new CarbonSubmission[](
-            totalVerified
-        );
+        // Create an array to store all verified submissions with seller info
+        VerifiedSubmission[]
+            memory verifiedSubmissions = new VerifiedSubmission[](
+                totalVerified
+            );
         uint256 index = 0;
 
-        // Populate the array with verified submissions
+        // Populate the array with verified submissions including seller addresses
         for (uint256 i = 0; i < sellers.length; i++) {
             address seller = sellers[i];
             CarbonSubmission[] storage submissions = carbonSubmissions[seller];
             for (uint256 j = 0; j < submissions.length; j++) {
-                if (submissions[j].verified) {
+                if (
+                    submissions[j].verified && submissions[j].verifiedAmount > 0
+                ) {
                     CarbonSubmission storage submission = submissions[j];
-                    verifiedSubmissions[index] = submission;
+                    verifiedSubmissions[index] = VerifiedSubmission({
+                        seller: seller,
+                        id: submission.id,
+                        verifiedAmount: submission.verifiedAmount,
+                        verifiedPrice: submission.verifiedPrice,
+                        timestamp: submission.timestamp
+                    });
                     index++;
                 }
             }
@@ -304,5 +337,169 @@ contract CarbonToken is ERC20 {
     ) external view returns (CarbonSubmission[] memory) {
         require(userRoles[seller] == Role.Seller, "Address is not a seller");
         return carbonSubmissions[seller];
+    }
+
+    // Function to retrieve detailed submission data for a seller, including verification details
+    function getSubmissionDetails(
+        address seller,
+        uint256 submissionId
+    )
+        external
+        view
+        returns (
+            uint256 amount,
+            uint256 pricePerTon,
+            uint256 date,
+            uint256 verifiedPricePerTon,
+            bool isVerified
+        )
+    {
+        require(userRoles[seller] == Role.Seller, "Address is not a seller");
+
+        CarbonSubmission[] storage submissions = carbonSubmissions[seller];
+        bool found = false;
+        CarbonSubmission memory submission;
+
+        // Find the specific submission by ID
+        for (uint256 i = 0; i < submissions.length; i++) {
+            if (submissions[i].id == submissionId) {
+                submission = submissions[i];
+                found = true;
+                break;
+            }
+        }
+
+        require(found, "Submission not found");
+
+        // Return the submission details
+        return (
+            submission.amount,
+            submission.pricePerTon,
+            submission.timestamp,
+            submission.verifiedPrice,
+            submission.verified
+        );
+    }
+    function buyTokens(
+        address seller,
+        uint256 submissionId,
+        uint256 amountToBuy
+    ) external payable {
+        require(
+            userRoles[msg.sender] == Role.Buyer,
+            "Only buyers can purchase tokens"
+        );
+        require(userRoles[seller] == Role.Seller, "Invalid seller address");
+
+        CarbonSubmission[] storage submissions = carbonSubmissions[seller];
+        uint256 index;
+        bool found = false;
+
+        // Find the index of the specific verified submission by ID
+        for (uint256 i = 0; i < submissions.length; i++) {
+            if (submissions[i].id == submissionId && submissions[i].verified) {
+                index = i;
+                found = true;
+                break;
+            }
+        }
+
+        require(found, "Verified submission not found");
+
+        // Now safely access the submission
+        CarbonSubmission storage submission = submissions[index];
+        require(
+            amountToBuy > 0 && amountToBuy <= submission.verifiedAmount,
+            "Invalid purchase amount"
+        );
+
+        uint256 totalPrice = submission.verifiedPrice * amountToBuy; // Calculate the total price
+        require(msg.value >= totalPrice, "Insufficient ETH sent");
+
+        // Transfer tokens to buyer
+        _transfer(seller, msg.sender, amountToBuy);
+
+        // Update the verified amount to reflect the tokens sold
+        submission.verifiedAmount -= amountToBuy;
+
+        // Generate unique token codes for each purchased token
+        for (uint256 i = 0; i < amountToBuy; i++) {
+            string memory uniqueTokenCode = string(
+                abi.encodePacked(
+                    "TKN-CE",
+                    uint2str(block.timestamp), // Date and time
+                    "-",
+                    uint2str(submissionId), // Submission ID
+                    "-",
+                    uint2str(i + 1), // Token number in this purchase
+                    "-",
+                    randomString(5) // Random string for uniqueness
+                )
+            );
+
+            // Store the certificate information
+            tokenCertificates[submissionId][msg.sender].push(
+                TokenCertificate({
+                    buyer: msg.sender,
+                    amount: 1,
+                    pricePerTon: submission.verifiedPrice,
+                    uniqueTokenCode: uniqueTokenCode,
+                    timestamp: block.timestamp
+                })
+            );
+        }
+
+        // Send ETH payment to the seller
+        payable(seller).transfer(totalPrice);
+
+        // Refund any excess ETH sent
+        if (msg.value > totalPrice) {
+            payable(msg.sender).transfer(msg.value - totalPrice);
+        }
+    }
+
+    // Helper function to convert uint to string
+    function uint2str(uint256 _i) internal pure returns (string memory) {
+        if (_i == 0) {
+            return "0";
+        }
+        uint256 j = _i;
+        uint256 len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(len);
+        uint256 k = len;
+        while (_i != 0) {
+            k = k - 1;
+            uint8 temp = (48 + uint8(_i - (_i / 10) * 10));
+            bytes1 b1 = bytes1(temp);
+            bstr[k] = b1;
+            _i /= 10;
+        }
+        return string(bstr);
+    }
+
+    // Helper function to generate a random string of given length (insecure for production)
+    function randomString(
+        uint256 length
+    ) internal view returns (string memory) {
+        bytes memory charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        bytes memory randomStr = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            randomStr[i] = charset[
+                uint256(
+                    keccak256(
+                        abi.encodePacked(block.timestamp, block.difficulty, i)
+                    )
+                ) % charset.length
+            ];
+        }
+        return string(randomStr);
+    }
+
+    function getAllSellers() external view returns (address[] memory) {
+        return sellers;
     }
 }

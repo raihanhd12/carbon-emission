@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useVerifyCarbon } from "../../contracts/admin"; // Use the hook from admin.js
+import { useVerifyCarbon } from "../../contracts/admin";
 
 const VerifyCarbon = ({ submission, onVerify, onError }) => {
-  const [verifiedAmount, setVerifiedAmount] = useState(submission.amount);
-  const [verifiedPricePerTon, setVerifiedPricePerTon] = useState(""); // New state for verified price per ton
+  const [verifiedAmount, setVerifiedAmount] = useState(submission.amount || "");
+  const [verifiedPricePerTon, setVerifiedPricePerTon] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { verifyCarbonSubmission } = useVerifyCarbon(); // Call the hook to verify
+  const { verifyCarbonSubmission } = useVerifyCarbon();
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -17,27 +17,37 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
     }
 
     if (!verifiedPricePerTon) {
-      onError("Verified price per ton is required.");
+      onError("Verified price per ton (Rupiah) is required.");
       return;
     }
 
-    if (Number(verifiedAmount) > Number(submission.amount)) {
-      onError("Verified amount cannot exceed submitted amount.");
+    const parsedAmount = Number(verifiedAmount);
+    const submittedAmount = Number(submission.amount);
+
+    if (parsedAmount > submittedAmount) {
+      onError(
+        `Verified amount cannot exceed submitted amount (${submittedAmount}).`
+      );
+      setVerifiedAmount(submission.amount);
       return;
     }
 
     try {
       setLoading(true);
 
+      // Send verifiedAmount and verifiedPricePerTon to contract
       await verifyCarbonSubmission(
         submission.seller,
         submission.submissionId,
-        verifiedAmount,
-        verifiedPricePerTon, // Pass the verified price per ton as an argument
+        BigInt(parsedAmount),
+        BigInt(verifiedPricePerTon),
         onError
       );
 
       onVerify();
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      onError("Transaction failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -58,7 +68,7 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
         type="number"
         value={verifiedPricePerTon}
         onChange={(e) => setVerifiedPricePerTon(e.target.value)}
-        placeholder="Verified Price per Ton"
+        placeholder="Verified Price per Ton (Rupiah)"
         min="0"
         className="px-3 py-2 bg-zinc-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
       />
