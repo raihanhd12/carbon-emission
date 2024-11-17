@@ -31,30 +31,12 @@ export const useSubmitCarbon = () => {
     return { submitCarbon };
 };
 
-// Hook to fetch submissions for a seller
-export const useFetchSubmissionsForSeller = (address) => {
+export const useCheckUnverifiedSubmission = (address) => {
     return useReadContract({
         contract: carbonTokenContract,
-        method: "getSubmissionsForSeller",
-        params: address ? [address] : [],
-        watch: true, // Auto-refresh when the contract data changes
+        method: "checkUnverifiedSubmission",
+        params: [address],
+        watch: true,
     });
 };
 
-export const useFetchVerifiedSubmissionsForSeller = (address) => {
-    return useReadContract({
-        contract: carbonTokenContract,
-        method: "getVerifiedSubmissionsForSeller",
-        params: address ? [address] : [],
-        watch: true, // Auto-refresh when the contract data changes
-    });
-}
-
-export const useFetchSubmissionDetails = (address, submissionId) => {
-    return useReadContract({
-        contract: carbonTokenContract,
-        method: "getSubmissionDetails",
-        params: [address, submissionId],
-        watch: true, // Auto-refresh when the contract data changes
-    });
-}

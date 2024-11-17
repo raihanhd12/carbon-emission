@@ -1,161 +1,240 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useFetchAllSellers,
-  useFetchAllSubmission,
-} from "../../contracts/buyer";
 import Breadcrumb from "../../components/Breadcrumb";
+import { useFetchSubmission } from "../../contracts/others";
+import {
+  TrendingUp,
+  Clock,
+  ChevronRight,
+  Wallet,
+  Scale,
+  DollarSign,
+  CalendarDays,
+  ArrowUpRight,
+  Loader,
+} from "lucide-react";
 
-// Fungsi untuk memformat harga dalam bentuk rupiah
-const formatPrice = (priceInWei) => {
-  const priceInEth = Number(priceInWei) / 1e18; // Konversi dari Wei ke ETH
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-  }).format(priceInEth);
-};
+const StatCard = ({ title, value, change }) => (
+  <div className="bg-zinc-800/50 rounded-xl p-6 border border-zinc-700/50">
+    <h3 className="text-zinc-400 text-sm mb-2">{title}</h3>
+    <div className="text-2xl font-bold text-white mb-2">{value}</div>
+    {change && (
+      <div className="flex items-center text-sm text-green-400">
+        <TrendingUp className="w-4 h-4 mr-1" />
+        {change} from last month
+      </div>
+    )}
+  </div>
+);
+
+const SubmissionCard = ({ submission, formatAddress, convertWeiToEth }) => (
+  <div className="bg-zinc-800/50 rounded-xl border border-zinc-700/50 overflow-hidden hover:border-violet-500/50 transition-all duration-300 transform hover:-translate-y-1">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-violet-500/20 rounded-lg">
+            <Wallet className="w-5 h-5 text-violet-400" />
+          </div>
+          <span className="font-mono text-sm text-zinc-400">
+            {formatAddress(submission.sellerAddress)}
+          </span>
+        </div>
+        <Link
+          to={`/dashboard/buyer/sellers/${submission.sellerAddress}/${submission.submissionId}`}
+          className="text-violet-400 hover:text-violet-300 transition-colors"
+        >
+          <ArrowUpRight className="w-5 h-5" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="bg-zinc-900/50 p-3 rounded-lg">
+          <div className="flex items-center text-sm text-zinc-400 mb-1">
+            <Scale className="w-4 h-4 mr-1" />
+            Verified Amount
+          </div>
+          <div className="text-lg font-semibold text-green-400">
+            {submission.verifiedAmount.toString()} tons
+          </div>
+        </div>
+        <div className="bg-zinc-900/50 p-3 rounded-lg">
+          <div className="flex items-center text-sm text-zinc-400 mb-1">
+            <DollarSign className="w-4 h-4 mr-1" />
+            Verified Price
+          </div>
+          <div className="text-lg font-semibold text-violet-400">
+            {convertWeiToEth(submission.verifiedPrice.toString())} ETH
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center text-sm text-zinc-400">
+        <CalendarDays className="w-4 h-4 mr-1" />
+        {new Date(Number(submission.timestamp) * 1000).toLocaleDateString()}
+      </div>
+    </div>
+  </div>
+);
+
+const SectionHeader = ({ icon: Icon, title, linkText }) => (
+  <div className="flex items-center justify-between mb-6">
+    <div className="flex items-center space-x-3">
+      <div className="p-2 bg-zinc-800 rounded-lg">
+        <Icon className="w-6 h-6 text-violet-400" />
+      </div>
+      <h3 className="text-2xl font-bold text-white">{title}</h3>
+    </div>
+    <Link
+      to="/dashboard/buyer/sellers"
+      className="flex items-center px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors"
+    >
+      {linkText}
+      <ChevronRight className="w-4 h-4 ml-1" />
+    </Link>
+  </div>
+);
 
 const Dashboard = () => {
   const [submissionData, setSubmissionData] = useState([]);
-  const [sellerData, setSellerData] = useState([]);
-
-  // Panggil hook untuk mengambil data submission
-  const {
-    data: allSubmission,
-    error: allSubmissionError,
-    isLoading: allSubmissionLoading,
-  } = useFetchAllSubmission();
+  const formatAddress = (addr) =>
+    addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toFixed(4);
 
   const {
-    data: sellers,
-    error: sellersError,
-    isLoading: sellersLoading,
-  } = useFetchAllSellers();
+    data: fetchedData,
+    error: submissionDetailsError,
+    isLoading: submissionDetailsLoading,
+  } = useFetchSubmission();
 
-  // Fetch data submission
   useEffect(() => {
-    if (allSubmission) {
-      setSubmissionData(allSubmission);
-    }
-  }, [allSubmission]);
+    if (fetchedData && fetchedData.length > 1) {
+      const sellers = fetchedData[0];
+      const submissions = fetchedData[1];
 
-  // Fetch data sellers
-  useEffect(() => {
-    if (sellers) {
-      setSellerData(sellers);
-    }
-  }, [sellers]);
+      const verifiedSubmissions = submissions
+        .filter((submission) => submission.verified)
+        .map((submission, index) => ({
+          ...submission,
+          sellerAddress: sellers[index],
+        }));
 
-  // Sort submissions by latest timestamp
+      setSubmissionData(verifiedSubmissions);
+    }
+  }, [fetchedData]);
+
+  const topVerifiedSubmissions = submissionData
+    .slice()
+    .sort((a, b) => Number(b.verifiedAmount) - Number(a.verifiedAmount))
+    .slice(0, 3);
+
   const latestSubmissions = submissionData
     .slice()
     .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
     .slice(0, 3);
 
-  return (
-    <div className="py-10 px-4">
-      <Breadcrumb />
-      <h2 className="text-3xl font-bold mb-6 text-zinc-100">
-        Carbon Emission Dashboard
-      </h2>
+  const totalVerifiedAmount = submissionData.reduce(
+    (acc, sub) => acc + Number(sub.verifiedAmount),
+    0
+  );
 
-      {/* Loading State */}
-      {allSubmissionLoading && (
-        <p className="text-gray-400">Loading submissions...</p>
-      )}
-      {sellersLoading && <p className="text-gray-400">Loading sellers...</p>}
-
-      {/* Error State */}
-      {allSubmissionError && (
-        <p className="text-red-500">Error fetching submissions data.</p>
-      )}
-      {sellersError && (
-        <p className="text-red-500">Error fetching sellers data.</p>
-      )}
-
-      {/* Section: Top Verified Sellers */}
-      <div className="mt-10 relative">
-        <h3 className="text-2xl font-semibold text-violet-400 mb-6">
-          Top Verified Submissions
-        </h3>
-        <Link
-          to="/dashboard/buyer/sellers"
-          className="absolute top-0 right-0 text-violet-600 hover:text-violet-800"
-        >
-          See All
-        </Link>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {submissionData.slice(0, 3).map((submission, index) => (
-            <div
-              key={index}
-              className="bg-zinc-800 rounded-lg shadow-md p-6 mb-4"
-            >
-              <h4 className="text-xl font-semibold text-violet-400 mb-2">
-                Seller: {submission.seller}
-              </h4>
-              <p className="text-zinc-300">
-                Verified Amount: {submission.verifiedAmount.toString()} tons
-              </p>
-              <p className="text-zinc-300">
-                Verified Price: {formatPrice(submission.verifiedPrice)}
-              </p>
-              <p className="text-zinc-300">
-                Submission Date:{" "}
-                {new Date(
-                  Number(submission.timestamp) * 1000
-                ).toLocaleDateString()}
-              </p>
-              <Link
-                to={`/dashboard/buyer/sellers/${submission.seller}/${submission.id}`}
-                className="text-violet-600 mt-4 inline-block"
-              >
-                View Seller Details
-              </Link>
-            </div>
-          ))}
+  if (submissionDetailsLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-8 h-8 text-violet-400 animate-spin mb-4" />
+          <p className="text-zinc-400">Loading dashboard data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Section: Latest Submissions */}
-      <div className="mt-10 relative">
-        <h3 className="text-2xl font-semibold text-violet-400 mb-6">
-          Latest Submissions
-        </h3>
-        <Link
-          to="/dashboard/buyer/sellers"
-          className="absolute top-0 right-0 text-violet-600 hover:text-violet-800"
-        >
-          See All
-        </Link>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {latestSubmissions.map((submission, index) => (
-            <div
-              key={index}
-              className="bg-zinc-800 rounded-lg shadow-md p-6 mb-4"
-            >
-              <h4 className="text-xl font-semibold text-violet-400 mb-2">
-                Seller: {submission.seller}
-              </h4>
-              <p className="text-zinc-300">
-                Verified Amount: {submission.verifiedAmount.toString()} tons
-              </p>
-              <p className="text-zinc-300">
-                Verified Price: {formatPrice(submission.verifiedPrice)}
-              </p>
-              <p className="text-zinc-300">
-                Submission Date:{" "}
-                {new Date(
-                  Number(submission.timestamp) * 1000
-                ).toLocaleDateString()}
-              </p>
-              <Link
-                to={`/dashboard/buyer/sellers/${submission.seller}/${submission.id}`}
-                className="text-violet-600 mt-4 inline-block"
-              >
-                View Seller Details
-              </Link>
+  if (submissionDetailsError) {
+    return (
+      <div className="min-h-screen bg-zinc-900 p-8">
+        <div className="bg-red-500/10 rounded-xl p-6 border border-red-500/20 text-center">
+          <p className="text-red-400">Error fetching submissions data.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-zinc-900 via-zinc-900 to-zinc-800 py-10 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <Breadcrumb />
+          <h1 className="text-4xl font-bold text-white mb-6">
+            Buyer Dashboard
+          </h1>
+
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <StatCard
+              title="Total Verified Emissions"
+              value={`${totalVerifiedAmount} tons`}
+              change="+12.5%"
+            />
+            <StatCard
+              title="Active Sellers"
+              value={submissionData.length}
+              change="+5.2%"
+            />
+            <StatCard
+              title="Total Transactions"
+              value={submissionData.length}
+              change="+8.1%"
+            />
+          </div>
+
+          {/* Top Verified Amount Section */}
+          <div className="mb-12">
+            <SectionHeader
+              icon={TrendingUp}
+              title="Top Verified Emissions"
+              linkText="View All Sellers"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {topVerifiedSubmissions.length > 0 ? (
+                topVerifiedSubmissions.map((submission, index) => (
+                  <SubmissionCard
+                    key={index}
+                    submission={submission}
+                    formatAddress={formatAddress}
+                    convertWeiToEth={convertWeiToEth}
+                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-12 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                  <p className="text-zinc-400">No top submissions found.</p>
+                </div>
+              )}
             </div>
-          ))}
+          </div>
+
+          {/* Latest Verified Submissions Section */}
+          <div>
+            <SectionHeader
+              icon={Clock}
+              title="Latest Verifications"
+              linkText="View All Sellers"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {latestSubmissions.length > 0 ? (
+                latestSubmissions.map((submission, index) => (
+                  <SubmissionCard
+                    key={index}
+                    submission={submission}
+                    formatAddress={formatAddress}
+                    convertWeiToEth={convertWeiToEth}
+                  />
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-12 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                  <p className="text-zinc-400">No latest submissions found.</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

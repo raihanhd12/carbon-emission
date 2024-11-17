@@ -1,105 +1,103 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import { useSubmitCarbon } from "../../contracts/seller";
 
-const SubmitCarbon = ({
-  address,
-  hasUnverifiedSubmission,
-  onSubmit,
-  onError,
-}) => {
-  const [amount, setAmount] = useState("");
-  const [pricePerTon, setPricePerTon] = useState("");
-  const [loading, setLoading] = useState(false);
+// Fungsi untuk mengonversi ETH ke Wei
+const convertEthToWei = (eth) => {
+  return BigInt(eth * 1e18);
+};
 
+const SubmitCarbon = ({ address, isDisabled }) => {
   const { submitCarbon } = useSubmitCarbon();
+  const [amount, setAmount] = useState("");
+  const [pricePerTonEth, setPricePerTonEth] = useState(""); // Harga dalam ETH
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    if (!amount || !pricePerTon) {
-      onError("Carbon amount and price per ton are required.");
-      return;
-    }
-
-    const parsedAmount = BigInt(Number(amount));
-    const parsedPrice = BigInt(Number(pricePerTon)); // Input langsung dalam bentuk Wei
-
-    if (parsedAmount <= 0n || parsedPrice <= 0n) {
-      onError("Carbon amount and price per ton must be greater than zero.");
-      return;
-    }
-
-    if (hasUnverifiedSubmission) {
-      onError(
-        "You have an unverified submission. Please wait for verification."
-      );
+    if (!amount || !pricePerTonEth) {
+      toast.error("Please enter both amount and price.");
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      setLoading(true);
-      const success = await onSubmit(parsedAmount, parsedPrice);
+      const parsedAmount = BigInt(amount);
+      // Konversi harga dari ETH ke Wei
+      const parsedPriceWei = convertEthToWei(pricePerTonEth);
+
+      const success = await submitCarbon(
+        parsedAmount,
+        parsedPriceWei,
+        (error) => {
+          toast.error(error.message || "Error during submission");
+        }
+      );
+
       if (success) {
+        toast.success("Carbon submission successful!");
         setAmount("");
-        setPricePerTon("");
+        setPricePerTonEth("");
       }
+    } catch (error) {
+      console.error("Submission Error:", error);
+      toast.error("Submission failed. Please try again.");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label
-          htmlFor="amount"
-          className="block text-sm font-medium text-white"
-        >
-          Carbon Amount (tons)
-        </label>
-        <input
-          type="number"
-          id="amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Enter carbon amount"
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-black"
-          required
-          disabled={hasUnverifiedSubmission}
-        />
-      </div>
+    <div className="w-full max-w-md mx-auto bg-zinc-900 rounded-lg shadow-lg border border-zinc-800 p-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-300 block">
+            Amount (tons)
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            disabled={isDisabled}
+            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 text-white rounded-md 
+                     focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500
+                     placeholder:text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Enter amount in tons"
+          />
+        </div>
 
-      <div>
-        <label
-          htmlFor="pricePerTon"
-          className="block text-sm font-medium text-white"
-        >
-          Price per Ton (in Wei)
-        </label>
-        <input
-          type="number"
-          id="pricePerTon"
-          value={pricePerTon}
-          onChange={(e) => setPricePerTon(e.target.value)}
-          placeholder="Enter price per ton in Wei"
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-black"
-          required
-          disabled={hasUnverifiedSubmission}
-        />
-      </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-zinc-300 block">
+            Price per Ton (in ETH)
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.0001"
+            value={pricePerTonEth}
+            onChange={(e) => setPricePerTonEth(e.target.value)}
+            disabled={isDisabled}
+            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 text-white rounded-md 
+                     focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500
+                     placeholder:text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            placeholder="Enter price in ETH"
+          />
+        </div>
 
-      <button
-        type="submit"
-        className="w-full bg-violet-500 text-white p-2 rounded hover:bg-violet-600 disabled:bg-violet-300"
-        disabled={loading || hasUnverifiedSubmission}
-      >
-        {loading
-          ? "Submitting..."
-          : hasUnverifiedSubmission
-          ? "Waiting for Verification"
-          : "Submit Carbon"}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={isDisabled || isSubmitting}
+          className="w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2 px-4 rounded-md
+                   transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? "Submitting..." : "Submit Carbon Credits"}
+        </button>
+      </form>
+    </div>
   );
 };
 

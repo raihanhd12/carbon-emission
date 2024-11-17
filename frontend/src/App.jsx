@@ -19,13 +19,19 @@ export function App() {
             <Route path="/" element={<LandingPage />} />
             {/* Seller */}
             <Route
-              path="/dashboard/sellers/:id/seller-dashboard"
+              path="/dashboard/sellers/:address"
               element={<SellerDashboard />}
             />
             {/* Admin */}
-            <Route path="/dashboard/admin" element={<AdminDashboard />} />
+            <Route
+              path="/dashboard/admin/:address"
+              element={<AdminDashboard />}
+            />
             {/* Buyer */}
-            <Route path="/dashboard/buyer/" element={<BuyerDashboard />} />
+            <Route
+              path="/dashboard/buyer/:address"
+              element={<BuyerDashboard />}
+            />
             <Route path="/dashboard/buyer/sellers" element={<Sellers />} />
             <Route
               path="/dashboard/buyer/sellers/:id/:submissionId"

@@ -1,213 +1,103 @@
 import React, { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { prepareContractCall } from "thirdweb";
-import {
-  ConnectButton,
-  useActiveAccount,
-  useSendTransaction,
-} from "thirdweb/react";
-import { useFetchAdmin } from "../contracts/admin";
-import { useFetchUserRole } from "../contracts/others";
-import { carbonTokenContract } from "../services/carbonTokenContract";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { ConnectButton, useActiveAccount } from "thirdweb/react";
 import { client } from "../services/client";
 import { Toaster, toast } from "react-hot-toast";
-import { X } from "lucide-react";
+import { useFetchUserData, useRegisterUser } from "../contracts/others";
+import { useFetchAdmin } from "../contracts/admin";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     company: "",
+    role: "",
   });
-  const [selectedRole, setSelectedRole] = useState(null);
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
+  const location = useLocation(); // Tambahkan ini
   const activeAccount = useActiveAccount();
   const walletAddress = activeAccount?.address;
-  const { mutateAsync: sendTransaction } = useSendTransaction();
-  const { data: adminAddress, error: adminError } = useFetchAdmin();
-  const { data: roleNumber, error: roleError } =
-    useFetchUserRole(walletAddress);
 
-  // Handle admin address fetch error
-  useEffect(() => {
-    if (adminError) {
-      console.error("Error fetching admin address:", adminError);
-      toast.error("Failed to fetch admin address.");
-      setLoading(false);
-    }
-  }, [adminError]);
+  const { data: userData, isLoading: userDataLoading } =
+    useFetchUserData(walletAddress);
+  const { data: adminAddress, isLoading: adminLoading } = useFetchAdmin();
+  const { registerUser } = useRegisterUser();
 
-  // Check if the connected wallet is the admin
+  const isAdmin =
+    walletAddress &&
+    adminAddress &&
+    walletAddress.toLowerCase() === adminAddress.toLowerCase();
+
+  // Check wallet connection and user role
   useEffect(() => {
-    if (adminAddress && walletAddress) {
-      if (walletAddress.toLowerCase() === adminAddress.toLowerCase()) {
-        setUserRole("admin");
-        setLoading(false);
+    if (walletAddress && !userDataLoading && !adminLoading) {
+      if (isAdmin) {
+        // Jika pengguna adalah admin, arahkan ke dashboard admin
+        navigate(`/dashboard/admin/${walletAddress}`);
+      } else if (userData && userData[0] === 0) {
+        // Jika pengguna belum terdaftar
+        setShowRoleModal(true);
+      } else {
+        setShowRoleModal(false);
       }
     }
-  }, [adminAddress, walletAddress]);
+  }, [
+    walletAddress,
+    userData,
+    isAdmin,
+    userDataLoading,
+    adminLoading,
+    navigate,
+  ]);
 
-  // Check and handle user role
-  useEffect(() => {
-    if (roleError) {
-      console.error("Error fetching user role:", roleError);
-      toast.error("Failed to fetch user role.");
-      setLoading(false);
+  const handleDashboardClick = () => {
+    if (userData) {
+      const role = userData[0]; // Role: 1 = Seller, 2 = Buyer, 3 = Admin
+      if (role === 1) {
+        navigate(`/dashboard/sellers/${walletAddress}`);
+      } else if (role === 2) {
+        navigate(`/dashboard/buyer/${walletAddress}`);
+      } else if (isAdmin) {
+        navigate(`/dashboard/admin/${walletAddress}`);
+      } else {
+        toast.error("Role not assigned. Please register.");
+      }
+    }
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (!walletAddress) {
+      toast.error("Please connect your wallet first");
       return;
     }
 
-    if (roleNumber !== undefined && userRole !== "admin") {
-      let roleEnum;
-
-      // Check if roleNumber is a BigNumber
-      if (
-        typeof roleNumber === "object" &&
-        roleNumber !== null &&
-        typeof roleNumber.toNumber === "function"
-      ) {
-        roleEnum = roleNumber.toNumber();
-      } else if (typeof roleNumber === "number") {
-        roleEnum = roleNumber;
-      } else {
-        console.error("Unexpected roleNumber type:", typeof roleNumber);
-        toast.error("Unexpected role data received.");
-        setLoading(false);
-        return;
-      }
-
-      if (roleEnum === 0) {
-        // Unassigned
-        setShowRoleModal(true);
-      } else if (roleEnum === 1) {
-        // Seller
-        setUserRole("seller");
-        setLoading(false);
-      } else if (roleEnum === 2) {
-        // Buyer
-        setUserRole("buyer");
-        setLoading(false);
-      }
-    }
-  }, [roleNumber, userRole]);
-
-  // Handle account switch
-  useEffect(() => {
-    const previousAddress = localStorage.getItem("walletAddress");
-
-    if (walletAddress && previousAddress && walletAddress !== previousAddress) {
-      toast.success("Account switched, refreshing...");
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+    if (!formData.name || !formData.role) {
+      toast.error("All fields are required");
+      return;
     }
 
-    localStorage.setItem("walletAddress", walletAddress || "");
-  }, [walletAddress]);
+    if (formData.role === "seller" && !formData.company) {
+      toast.error("Company is required for sellers");
+      return;
+    }
 
-  const navLinkClass = ({ isActive }) =>
-    `px-3 py-2 rounded-md text-sm font-medium ${
-      isActive
-        ? "bg-violet-700 text-white"
-        : "text-gray-300 hover:bg-violet-600 hover:text-white"
-    }`;
-
-  const handleConnect = () => {
-    setLoading(true);
-  };
-
-  const handleDisconnect = () => {
-    toast.error("Wallet disconnected");
-    setUserRole(null);
-    setLoading(false);
-    navigate("/");
-  };
-
-  const handleRoleSelection = async (role) => {
+    const roleIndex = formData.role === "seller" ? 1 : 2;
     try {
-      // Ambil nama dari input user (bisa dari modal atau state)
-      const name = prompt("Enter your name:");
-      if (!name) {
-        toast.error("Name is required.");
-        return;
+      const success = await registerUser(
+        roleIndex,
+        formData.name,
+        formData.company || ""
+      );
+      if (success) {
+        toast.success("Registration successful!");
+        setShowRoleModal(false);
       }
-
-      let company = ""; // Untuk buyer tidak ada perusahaan
-      const roleIndex = role === "seller" ? 1 : 2; // Seller is 1, Buyer is 2
-
-      if (role === "seller") {
-        company = prompt("Enter your company (optional for buyer):");
-      }
-
-      const transaction = prepareContractCall({
-        contract: carbonTokenContract,
-        method: "userSelectRole",
-        params: [roleIndex, name, company],
-      });
-
-      await sendTransaction(transaction);
-
-      setShowRoleModal(false);
-      localStorage.setItem("userRole", role);
-      setUserRole(role);
-      toast.success(`Role selected: ${role}`);
     } catch (error) {
-      console.error("Role selection failed:", error);
-      toast.error("Failed to select role. Please try again.");
-    }
-  };
-
-  const handleInitialRoleSelection = (role) => {
-    setSelectedRole(role);
-    if (role === "buyer") {
-      // For buyer, show a simpler form
-      setShowDetailsModal(true);
-      setFormData((prev) => ({ ...prev, company: "" }));
-    } else {
-      // For seller, show the full form
-      setShowDetailsModal(true);
-    }
-    setShowRoleModal(false);
-  };
-
-  const handleSubmitDetails = async (e) => {
-    e.preventDefault();
-
-    try {
-      if (!formData.name) {
-        toast.error("Name is required.");
-        return;
-      }
-
-      if (selectedRole === "seller" && !formData.company) {
-        toast.error("Company name is required for sellers.");
-        return;
-      }
-
-      const roleIndex = selectedRole === "seller" ? 1 : 2;
-
-      const transaction = prepareContractCall({
-        contract: carbonTokenContract,
-        method: "userSelectRole",
-        params: [roleIndex, formData.name, formData.company],
-      });
-
-      await sendTransaction(transaction);
-
-      setShowDetailsModal(false);
-      localStorage.setItem("userRole", selectedRole);
-      setUserRole(selectedRole);
-      toast.success(`Welcome ${formData.name}! Role selected: ${selectedRole}`);
-
-      // Reset form
-      setFormData({ name: "", company: "" });
-    } catch (error) {
-      console.error("Role selection failed:", error);
-      toast.error("Failed to select role. Please try again.");
+      console.error("Registration failed:", error);
+      toast.error("Registration failed. Please try again.");
     }
   };
 
@@ -215,278 +105,99 @@ const Header = () => {
     <header className="bg-zinc-900 shadow-lg">
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold tracking-tighter text-zinc-100">
-              Carbon<span className="text-violet-500">Emission</span>
-            </h1>
-          </div>
-
-          {/* Navigation Links - Center */}
+          <h1 className="text-2xl font-bold tracking-tighter text-zinc-100">
+            Carbon<span className="text-violet-500">Emission</span>
+          </h1>
           <nav className="hidden md:flex flex-grow justify-center">
-            <div className="flex items-baseline space-x-4">
-              <NavLink to="/" className={navLinkClass} end>
-                Home
-              </NavLink>
-              {userRole === "admin" ? (
-                <NavLink to="/dashboard/admin" className={navLinkClass}>
-                  Dashboard
-                </NavLink>
-              ) : userRole === "seller" && walletAddress ? (
-                <NavLink
-                  to={`/dashboard/sellers/${walletAddress}/seller-dashboard`}
-                  className={navLinkClass}
-                >
-                  Dashboard
-                </NavLink>
-              ) : (
-                <NavLink to="/dashboard/buyer" className={navLinkClass}>
-                  Dashboard
-                </NavLink>
-              )}
-            </div>
-          </nav>
-
-          {/* Connect Wallet Button - Right */}
-          <div className="flex-shrink-0">
-            <ConnectButton
-              client={client}
-              connectButton={{
-                style: {
-                  backgroundColor: "#8B5CF6",
-                  color: "#FFFFFF",
-                  borderRadius: "0.375rem",
-                  padding: "0.5rem 1rem",
-                  fontSize: "0.875rem",
-                  fontWeight: "500",
-                  transition: "background-color 0.2s ease-in-out",
-                },
-                className:
-                  "hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500",
-              }}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-            />
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden ml-2">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-white"
+            {/* Home Link */}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                isActive
+                  ? "px-3 py-2 text-sm font-medium text-white bg-violet-600"
+                  : "px-3 py-2 text-sm font-medium text-gray-300 hover:bg-violet-600 hover:text-white"
+              }
             >
-              <span className="sr-only">Open main menu</span>
-              <svg
-                className="block h-6 w-6"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                {isOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile menu */}
-      {isOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <NavLink to="/" className={navLinkClass} end>
               Home
             </NavLink>
-            {userRole === "admin" ? (
-              <NavLink to="/dashboard/admin" className={navLinkClass}>
-                Dashboard
-              </NavLink>
-            ) : userRole === "seller" && walletAddress ? (
-              <NavLink
-                to={`/dashboard/sellers/${walletAddress}/seller-dashboard`}
-                className={navLinkClass}
-              >
-                Dashboard
-              </NavLink>
+
+            {/* Dashboard Link */}
+            <NavLink
+              to={
+                userData
+                  ? userData[0] === 1
+                    ? `/dashboard/sellers/${walletAddress}`
+                    : userData[0] === 2
+                    ? `/dashboard/buyer/${walletAddress}`
+                    : `/dashboard/admin/${walletAddress}`
+                  : "#"
+              }
+              className={() =>
+                location.pathname.startsWith("/dashboard")
+                  ? "px-3 py-2 text-sm font-medium text-white bg-violet-600"
+                  : "px-3 py-2 text-sm font-medium text-gray-300 hover:bg-violet-600 hover:text-white"
+              }
+              onClick={handleDashboardClick}
+            >
+              Dashboard
+            </NavLink>
+          </nav>
+          <ConnectButton client={client} />
+        </div>
+      </div>
+      {/* Modal untuk registrasi hanya jika role bukan admin */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full relative">
+            <h2 className="text-2xl font-bold mb-6 text-center text-violet-400">
+              Complete Your Profile
+            </h2>
+            {userDataLoading ? (
+              <div className="text-center text-gray-300">Loading...</div>
             ) : (
-              <NavLink to="/dashboard" className={navLinkClass}>
-                Dashboard
-              </NavLink>
+              <form onSubmit={handleRegister} className="space-y-6">
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="w-full p-3 rounded-md bg-zinc-700 text-white"
+                />
+                <input
+                  type="text"
+                  placeholder="Company"
+                  value={formData.company}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company: e.target.value })
+                  }
+                  className="w-full p-3 rounded-md bg-zinc-700 text-white"
+                />
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  className="w-full p-3 rounded-md bg-zinc-700 text-white"
+                >
+                  <option value="">Select Role</option>
+                  <option value="seller">Seller</option>
+                  <option value="buyer">Buyer</option>
+                </select>
+                <button
+                  type="submit"
+                  className="w-full bg-violet-600 text-white px-6 py-3 rounded-lg hover:bg-violet-700"
+                >
+                  Complete Registration
+                </button>
+              </form>
             )}
           </div>
         </div>
       )}
-
-      {/* Role Selection Modal */}
-      {showRoleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full relative">
-            <button
-              onClick={() => setShowRoleModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-
-            <h2 className="text-2xl font-bold mb-6 text-center text-violet-400">
-              Choose Your Role
-            </h2>
-
-            <div className="space-y-4">
-              <button
-                onClick={() => handleInitialRoleSelection("seller")}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center justify-center space-x-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                  />
-                </svg>
-                <span>Seller</span>
-              </button>
-              <p className="text-sm text-gray-400 text-center">
-                Submit and manage your carbon emissions
-              </p>
-
-              <button
-                onClick={() => handleInitialRoleSelection("buyer")}
-                className="w-full bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-300 flex items-center justify-center space-x-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-                <span>Buyer</span>
-              </button>
-              <p className="text-sm text-gray-400 text-center">
-                Purchase and trade carbon credits
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Details Modal */}
-      {showDetailsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-zinc-800 p-8 rounded-lg shadow-xl max-w-md w-full relative">
-            <button
-              onClick={() => {
-                setShowDetailsModal(false);
-                setShowRoleModal(true);
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-
-            <h2 className="text-2xl font-bold mb-6 text-center text-violet-400">
-              Complete Your Profile
-            </h2>
-
-            <form onSubmit={handleSubmitDetails} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  className="w-full px-4 py-2 rounded-lg bg-zinc-700 text-white border border-zinc-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                  placeholder="Enter your full name"
-                />
-              </div>
-
-              {selectedRole === "seller" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Company Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        company: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-2 rounded-lg bg-zinc-700 text-white border border-zinc-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                    placeholder="Enter your company name"
-                  />
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="w-full bg-violet-600 text-white px-6 py-3 rounded-lg hover:bg-violet-700 transition duration-300"
-              >
-                Complete Registration
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <Toaster
-        position="top-center"
-        reverseOrder={false}
-        gutter={8}
-        containerClassName=""
-        containerStyle={{}}
-        toastOptions={{
-          className: "",
-          duration: 5000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-          },
-          success: {
-            duration: 3000,
-            theme: {
-              primary: "green",
-              secondary: "black",
-            },
-          },
-        }}
-      />
+      <Toaster />
     </header>
   );
 };

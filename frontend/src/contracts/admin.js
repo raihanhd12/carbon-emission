@@ -11,7 +11,7 @@ export const useVerifyCarbon = () => {
             // Prepare the contract call
             const transaction = prepareContractCall({
                 contract: carbonTokenContract,
-                method: "verifyCarbon",
+                method: "verifySubmission",
                 params: [seller, submissionId, verifiedAmount, verifiedPricePerTon], // Updated params to include verifiedPricePerTon
             });
 
@@ -26,16 +26,6 @@ export const useVerifyCarbon = () => {
     };
 
     return { verifyCarbonSubmission };
-};
-
-// Hook to fetch all unverified submissions
-export const useFetchUnverifiedSubmissions = () => {
-    return useReadContract({
-        contract: carbonTokenContract,
-        method: "getAllUnverifiedSubmissions",
-        params: [],
-        watch: true, // Auto-refresh when the contract data changes
-    });
 };
 
 export const useFetchAdmin = () => {

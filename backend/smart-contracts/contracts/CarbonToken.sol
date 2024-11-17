@@ -4,502 +4,332 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract CarbonToken is ERC20 {
-    address public admin;
+    address public immutable admin;
+    uint256 private submissionCounter;
 
-    struct CarbonSubmission {
-        uint256 id;
-        uint256 amount;
-        uint256 pricePerTon; // Harga per ton ketika seller submit
-        bool verified;
-        uint256 verifiedAmount;
-        uint256 verifiedPrice; // Harga yang ditentukan admin setelah verifikasi
-        uint256 timestamp;
-    }
+    // Format kode: 1 huruf, 4 angka, 2 huruf (contoh: B1234CD)
+    uint256 private numberCounter = 1; // untuk angka bagian tengah
+    uint8 private firstLetterCounter = 65; // ASCII untuk 'A'
+    uint8 private lastLetterCounter1 = 65; // ASCII untuk 'A'
+    uint8 private lastLetterCounter2 = 65; // ASCII untuk 'A'
 
-    struct UnverifiedSubmission {
-        address seller;
-        uint256 id;
-        uint256 amount;
-        uint256 pricePerTon;
-        uint256 timestamp;
-    }
-
-    struct VerifiedSubmission {
-        address seller;
-        uint256 id;
-        uint256 verifiedAmount;
-        uint256 verifiedPrice;
-        uint256 timestamp;
-    }
-
-    // Struct to store unique token details for certificates
-    struct TokenCertificate {
-        address buyer;
-        uint256 amount;
-        uint256 pricePerTon;
-        string uniqueTokenCode;
-        uint256 timestamp;
-    }
-
-    // Mapping to track certificates by submission ID and buyer
-    mapping(uint256 => mapping(address => TokenCertificate[]))
-        public tokenCertificates;
-    mapping(address => CarbonSubmission[]) public carbonSubmissions;
-    mapping(address => bool) public hasUnverifiedSubmission;
-
-    address[] public sellers; // To track all sellers
-    uint256 public submissionIdCounter;
-
-    // Enum for roles
     enum Role {
         Unassigned,
         Seller,
         Buyer
     }
 
-    // Struct for storing user details
-    struct UserDetails {
-        string name;
-        string company; // Optional: only for sellers
+    struct Submission {
+        uint256 submissionId;
+        uint256 amount;
+        uint256 price;
+        bool verified;
+        uint256 verifiedAmount;
+        uint256 verifiedPrice;
+        uint256 timestamp;
     }
 
-    // Mapping to store roles and user details
-    mapping(address => Role) public userRoles;
-    mapping(address => UserDetails) public userDetails;
+    struct TokenCertificate {
+        string registrationNumber;
+        uint256 price;
+        uint256 timestamp;
+        address buyer;
+        address seller;
+        uint256 submissionId;
+    }
 
-    // Events
-    event CarbonSubmitted(
+    struct PurchaseCertificate {
+        address buyer;
+        address seller;
+        uint256 submissionId;
+        uint256 totalAmount;
+        uint256 pricePerToken;
+        uint256 totalPrice;
+        uint256 timestamp;
+        string[] registrationNumbers;
+    }
+
+    struct User {
+        Role role;
+        string name;
+        string company;
+    }
+
+    // Main storage
+    mapping(address => User) public users;
+    mapping(address => mapping(uint256 => Submission)) public submissions;
+    mapping(address => uint256[]) public userSubmissionIds;
+    mapping(string => TokenCertificate) public tokenCertificates;
+    mapping(address => PurchaseCertificate[]) public purchaseCertificates;
+    mapping(string => bool) public usedRegistrationNumbers;
+    mapping(address => bool) private hasUnverifiedSubmission;
+    address[] public sellers;
+    mapping(address => bool) private isSellerAdded;
+
+    event SubmissionCreated(
         address indexed seller,
-        uint256 id,
+        uint256 indexed id,
         uint256 amount,
-        uint256 pricePerTon,
-        uint256 timestamp
+        uint256 price
     );
-    event CarbonVerified(
-        address indexed verifier,
+    event SubmissionVerified(
         address indexed seller,
-        uint256 id,
-        uint256 verifiedAmount,
-        uint256 verifiedPrice,
-        uint256 timestamp
+        uint256 indexed id,
+        uint256 amount,
+        uint256 price
     );
-
-    // Event for user selecting role
-    event UserRoleSelected(
-        address indexed user,
-        Role role,
-        string name,
-        string company
+    event TokensPurchased(
+        address indexed buyer,
+        address indexed seller,
+        uint256 submissionId,
+        uint256 amount,
+        uint256 totalPrice,
+        string[] registrationNumbers
     );
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can perform this action");
+        require(msg.sender == admin, "Not admin");
         _;
     }
 
-    modifier onlySeller() {
-        require(
-            userRoles[msg.sender] == Role.Seller,
-            "Only sellers can perform this action"
-        );
+    modifier onlyRole(Role role) {
+        require(users[msg.sender].role == role, "Invalid role");
         _;
     }
 
     constructor() ERC20("VerifiedCarbonToken", "VCT") {
         admin = msg.sender;
-        submissionIdCounter = 1;
     }
 
-    // Function to assign role to a user with name (and company if seller)
-    function userSelectRole(
+    function generateNextRegistrationNumber() private returns (string memory) {
+        // Format: B1234CD
+        string memory regNumber = string(
+            abi.encodePacked(
+                bytes1(firstLetterCounter),
+                uint2str(numberCounter),
+                bytes1(lastLetterCounter1),
+                bytes1(lastLetterCounter2)
+            )
+        );
+
+        // Increment counters
+        lastLetterCounter2++;
+        if (lastLetterCounter2 > 90) {
+            // 'Z'
+            lastLetterCounter2 = 65; // 'A'
+            lastLetterCounter1++;
+            if (lastLetterCounter1 > 90) {
+                lastLetterCounter1 = 65;
+                numberCounter++;
+                if (numberCounter > 9999) {
+                    numberCounter = 1;
+                    firstLetterCounter++;
+                    if (firstLetterCounter > 90) {
+                        firstLetterCounter = 65;
+                    }
+                }
+            }
+        }
+
+        return regNumber;
+    }
+
+    function register(
         Role role,
-        string memory name,
-        string memory company
+        string calldata name,
+        string calldata company
     ) external {
         require(
-            userRoles[msg.sender] == Role.Unassigned,
-            "Role already assigned"
+            users[msg.sender].role == Role.Unassigned,
+            "Already registered"
         );
-        require(
-            role == Role.Seller || role == Role.Buyer,
-            "Invalid role selection"
-        );
-        require(bytes(name).length > 0, "Name must not be empty");
+        require(role == Role.Seller || role == Role.Buyer, "Invalid role");
+        require(bytes(name).length > 0, "Empty name");
 
-        // Assign role and user details
-        userRoles[msg.sender] = role;
-        userDetails[msg.sender] = UserDetails({
-            name: name,
-            company: (role == Role.Seller) ? company : ""
-        });
-
-        if (role == Role.Seller) {
-            sellers.push(msg.sender);
-        }
-
-        // Emit event when user selects role
-        emit UserRoleSelected(msg.sender, role, name, company);
+        users[msg.sender] = User(role, name, company);
     }
 
-    // Function for sellers to submit carbon with price
     function submitCarbon(
         uint256 amount,
-        uint256 pricePerTon
-    ) external onlySeller {
-        require(amount > 0, "Amount must be greater than zero");
-        require(pricePerTon > 0, "Price per ton must be greater than zero");
+        uint256 price
+    ) external onlyRole(Role.Seller) {
+        require(amount > 0 && price > 0, "Invalid input");
         require(
             !hasUnverifiedSubmission[msg.sender],
-            "You have an unverified submission. Please wait for verification."
+            "Pending unverified submission"
         );
 
-        uint256 currentTimestamp = block.timestamp;
+        uint256 id = ++submissionCounter;
+        submissions[msg.sender][id] = Submission({
+            submissionId: id, // Tambahkan submissionId di sini
+            amount: amount,
+            price: price,
+            verified: false,
+            verifiedAmount: 0,
+            verifiedPrice: 0,
+            timestamp: block.timestamp
+        });
 
-        carbonSubmissions[msg.sender].push(
-            CarbonSubmission({
-                id: submissionIdCounter,
-                amount: amount,
-                pricePerTon: pricePerTon,
-                verified: false,
-                verifiedAmount: 0,
-                verifiedPrice: 0,
-                timestamp: currentTimestamp
-            })
-        );
-
+        userSubmissionIds[msg.sender].push(id);
         hasUnverifiedSubmission[msg.sender] = true;
-        submissionIdCounter++;
 
-        emit CarbonSubmitted(
-            msg.sender,
-            submissionIdCounter,
-            amount,
-            pricePerTon,
-            currentTimestamp
-        );
-    }
-
-    // Function to verify carbon submission by admin and set verified price
-    function verifyCarbon(
-        address seller,
-        uint256 submissionId,
-        uint256 verifiedAmount,
-        uint256 verifiedPricePerTon
-    ) external onlyAdmin {
-        require(userRoles[seller] == Role.Seller, "Address is not a seller");
-
-        CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-        uint256 index;
-        bool found = false;
-
-        // Find the index of the submission
-        for (uint256 i = 0; i < submissions.length; i++) {
-            if (submissions[i].id == submissionId) {
-                index = i;
-                found = true;
-                break;
-            }
+        if (!isSellerAdded[msg.sender]) {
+            sellers.push(msg.sender);
+            isSellerAdded[msg.sender] = true;
         }
 
-        require(found, "Submission not found");
+        emit SubmissionCreated(msg.sender, id, amount, price);
+    }
 
-        CarbonSubmission storage submission = submissions[index];
+    function verifySubmission(
+        address seller,
+        uint256 id,
+        uint256 verifiedAmount,
+        uint256 verifiedPrice
+    ) external onlyAdmin {
+        Submission storage sub = submissions[seller][id];
+        require(!sub.verified, "Already verified");
+        require(verifiedAmount <= sub.amount, "Amount too high");
 
-        require(!submission.verified, "Submission already verified");
-        require(
-            verifiedAmount <= submission.amount,
-            "Verified amount exceeds submitted amount"
-        );
-
-        // Update the submission with verified amount and price
-        submission.verified = true;
-        submission.verifiedAmount = verifiedAmount;
-        submission.verifiedPrice = verifiedPricePerTon;
+        sub.verified = true;
+        sub.verifiedAmount = verifiedAmount;
+        sub.verifiedPrice = verifiedPrice;
 
         hasUnverifiedSubmission[seller] = false;
-
-        // Mint ERC-20 tokens based on the verified amount
         _mint(seller, verifiedAmount);
-
-        emit CarbonVerified(
-            msg.sender,
-            seller,
-            submissionId,
-            verifiedAmount,
-            verifiedPricePerTon,
-            block.timestamp
-        );
+        emit SubmissionVerified(seller, id, verifiedAmount, verifiedPrice);
     }
 
-    // Function to get all unverified submissions with seller addresses
-    function getAllUnverifiedSubmissions()
-        external
-        view
-        returns (UnverifiedSubmission[] memory)
-    {
-        uint256 totalUnverified = 0;
-
-        // First, count the total number of unverified submissions
-        for (uint256 i = 0; i < sellers.length; i++) {
-            address seller = sellers[i];
-            CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-            for (uint256 j = 0; j < submissions.length; j++) {
-                if (!submissions[j].verified) {
-                    totalUnverified++;
-                }
-            }
-        }
-
-        // Create an array to store unverified submissions with seller addresses
-        UnverifiedSubmission[]
-            memory unverifiedSubmissions = new UnverifiedSubmission[](
-                totalUnverified
-            );
-        uint256 index = 0;
-
-        // Populate the array with unverified submissions
-        for (uint256 i = 0; i < sellers.length; i++) {
-            address seller = sellers[i];
-            CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-            for (uint256 j = 0; j < submissions.length; j++) {
-                if (!submissions[j].verified) {
-                    CarbonSubmission storage submission = submissions[j];
-                    unverifiedSubmissions[index] = UnverifiedSubmission({
-                        seller: seller,
-                        id: submission.id,
-                        amount: submission.amount,
-                        pricePerTon: submission.pricePerTon,
-                        timestamp: submission.timestamp
-                    });
-                    index++;
-                }
-            }
-        }
-
-        return unverifiedSubmissions;
-    }
-
-    // Function to get all verified submissions for buyers
-    function getAllSubmissions()
-        external
-        view
-        returns (VerifiedSubmission[] memory)
-    {
-        uint256 totalVerified = 0;
-
-        // Count the total number of verified submissions
-        for (uint256 i = 0; i < sellers.length; i++) {
-            address seller = sellers[i];
-            CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-            for (uint256 j = 0; j < submissions.length; j++) {
-                if (
-                    submissions[j].verified && submissions[j].verifiedAmount > 0
-                ) {
-                    totalVerified++;
-                }
-            }
-        }
-
-        // Create an array to store all verified submissions with seller info
-        VerifiedSubmission[]
-            memory verifiedSubmissions = new VerifiedSubmission[](
-                totalVerified
-            );
-        uint256 index = 0;
-
-        // Populate the array with verified submissions including seller addresses
-        for (uint256 i = 0; i < sellers.length; i++) {
-            address seller = sellers[i];
-            CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-            for (uint256 j = 0; j < submissions.length; j++) {
-                if (
-                    submissions[j].verified && submissions[j].verifiedAmount > 0
-                ) {
-                    CarbonSubmission storage submission = submissions[j];
-                    verifiedSubmissions[index] = VerifiedSubmission({
-                        seller: seller,
-                        id: submission.id,
-                        verifiedAmount: submission.verifiedAmount,
-                        verifiedPrice: submission.verifiedPrice,
-                        timestamp: submission.timestamp
-                    });
-                    index++;
-                }
-            }
-        }
-
-        return verifiedSubmissions;
-    }
-
-    // Function to get submissions for a specific seller
-    function getSubmissionsForSeller(
-        address seller
-    ) external view returns (CarbonSubmission[] memory) {
-        require(userRoles[seller] == Role.Seller, "Address is not a seller");
-        return carbonSubmissions[seller];
-    }
-
-    // Function to retrieve detailed submission data for a seller, including verification details
-    function getSubmissionDetails(
-        address seller,
-        uint256 submissionId
-    )
-        external
-        view
-        returns (
-            uint256 amount,
-            uint256 pricePerTon,
-            uint256 date,
-            uint256 verifiedPricePerTon,
-            bool isVerified
-        )
-    {
-        require(userRoles[seller] == Role.Seller, "Address is not a seller");
-
-        CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-        bool found = false;
-        CarbonSubmission memory submission;
-
-        // Find the specific submission by ID
-        for (uint256 i = 0; i < submissions.length; i++) {
-            if (submissions[i].id == submissionId) {
-                submission = submissions[i];
-                found = true;
-                break;
-            }
-        }
-
-        require(found, "Submission not found");
-
-        // Return the submission details
-        return (
-            submission.amount,
-            submission.pricePerTon,
-            submission.timestamp,
-            submission.verifiedPrice,
-            submission.verified
-        );
-    }
     function buyTokens(
         address seller,
         uint256 submissionId,
-        uint256 amountToBuy
-    ) external payable {
+        uint256 amount
+    ) external payable onlyRole(Role.Buyer) {
+        Submission storage sub = submissions[seller][submissionId];
         require(
-            userRoles[msg.sender] == Role.Buyer,
-            "Only buyers can purchase tokens"
-        );
-        require(userRoles[seller] == Role.Seller, "Invalid seller address");
-
-        CarbonSubmission[] storage submissions = carbonSubmissions[seller];
-        uint256 index;
-        bool found = false;
-
-        // Find the index of the specific verified submission by ID
-        for (uint256 i = 0; i < submissions.length; i++) {
-            if (submissions[i].id == submissionId && submissions[i].verified) {
-                index = i;
-                found = true;
-                break;
-            }
-        }
-
-        require(found, "Verified submission not found");
-
-        // Now safely access the submission
-        CarbonSubmission storage submission = submissions[index];
-        require(
-            amountToBuy > 0 && amountToBuy <= submission.verifiedAmount,
-            "Invalid purchase amount"
+            sub.verified && amount <= sub.verifiedAmount,
+            "Invalid purchase"
         );
 
-        uint256 totalPrice = submission.verifiedPrice * amountToBuy; // Calculate the total price
-        require(msg.value >= totalPrice, "Insufficient ETH sent");
+        uint256 totalPrice = amount * sub.verifiedPrice;
+        require(msg.value >= totalPrice, "Insufficient payment");
 
-        // Transfer tokens to buyer
-        _transfer(seller, msg.sender, amountToBuy);
+        // Update submission
+        sub.verifiedAmount -= amount;
 
-        // Update the verified amount to reflect the tokens sold
-        submission.verifiedAmount -= amountToBuy;
+        // Generate registration numbers for each token
+        string[] memory regNumbers = new string[](amount);
+        for (uint256 i = 0; i < amount; i++) {
+            string memory regNumber = generateNextRegistrationNumber();
+            regNumbers[i] = regNumber;
 
-        // Generate unique token codes for each purchased token
-        for (uint256 i = 0; i < amountToBuy; i++) {
-            string memory uniqueTokenCode = string(
-                abi.encodePacked(
-                    "TKN-CE",
-                    uint2str(block.timestamp), // Date and time
-                    "-",
-                    uint2str(submissionId), // Submission ID
-                    "-",
-                    uint2str(i + 1), // Token number in this purchase
-                    "-",
-                    randomString(5) // Random string for uniqueness
-                )
-            );
-
-            // Store the certificate information
-            tokenCertificates[submissionId][msg.sender].push(
-                TokenCertificate({
-                    buyer: msg.sender,
-                    amount: 1,
-                    pricePerTon: submission.verifiedPrice,
-                    uniqueTokenCode: uniqueTokenCode,
-                    timestamp: block.timestamp
-                })
-            );
+            // Store token certificate
+            tokenCertificates[regNumber] = TokenCertificate({
+                registrationNumber: regNumber,
+                price: sub.verifiedPrice,
+                timestamp: block.timestamp,
+                buyer: msg.sender,
+                seller: seller,
+                submissionId: submissionId
+            });
+            usedRegistrationNumbers[regNumber] = true;
         }
 
-        // Send ETH payment to the seller
+        // Store purchase certificate
+        purchaseCertificates[msg.sender].push(
+            PurchaseCertificate({
+                buyer: msg.sender,
+                seller: seller,
+                submissionId: submissionId,
+                totalAmount: amount,
+                pricePerToken: sub.verifiedPrice,
+                totalPrice: totalPrice,
+                timestamp: block.timestamp,
+                registrationNumbers: regNumbers
+            })
+        );
+
+        // Transfer tokens and handle payment
+        _transfer(seller, msg.sender, amount);
         payable(seller).transfer(totalPrice);
-
-        // Refund any excess ETH sent
         if (msg.value > totalPrice) {
             payable(msg.sender).transfer(msg.value - totalPrice);
         }
+
+        emit TokensPurchased(
+            msg.sender,
+            seller,
+            submissionId,
+            amount,
+            totalPrice,
+            regNumbers
+        );
     }
 
-    // Helper function to convert uint to string
-    function uint2str(uint256 _i) internal pure returns (string memory) {
-        if (_i == 0) {
-            return "0";
+    // View functionn
+    function getAllSubmissions()
+        external
+        view
+        returns (address[] memory, Submission[] memory)
+    {
+        uint256 totalCount = 0;
+
+        // Hitung total jumlah submission
+        for (uint256 i = 0; i < sellers.length; i++) {
+            totalCount += userSubmissionIds[sellers[i]].length;
         }
-        uint256 j = _i;
-        uint256 len;
-        while (j != 0) {
-            len++;
-            j /= 10;
+
+        // Inisialisasi array untuk hasil
+        address[] memory sellerAddresses = new address[](totalCount);
+        Submission[] memory allSubmissions = new Submission[](totalCount);
+
+        uint256 index = 0;
+
+        // Loop melalui semua sellers dan submission mereka
+        for (uint256 i = 0; i < sellers.length; i++) {
+            uint256[] memory ids = userSubmissionIds[sellers[i]];
+            for (uint256 j = 0; j < ids.length; j++) {
+                uint256 id = ids[j];
+                Submission memory sub = submissions[sellers[i]][id];
+                sub.submissionId = id;
+
+                // Simpan submission dan seller address
+                allSubmissions[index] = sub;
+                sellerAddresses[index] = sellers[i];
+                index++;
+            }
         }
-        bytes memory bstr = new bytes(len);
-        uint256 k = len;
-        while (_i != 0) {
-            k = k - 1;
-            uint8 temp = (48 + uint8(_i - (_i / 10) * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
-        }
-        return string(bstr);
+
+        return (sellerAddresses, allSubmissions);
     }
 
-    // Helper function to generate a random string of given length (insecure for production)
-    function randomString(
-        uint256 length
-    ) internal view returns (string memory) {
-        bytes memory charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        bytes memory randomStr = new bytes(length);
-        for (uint256 i = 0; i < length; i++) {
-            randomStr[i] = charset[
-                uint256(
-                    keccak256(
-                        abi.encodePacked(block.timestamp, block.difficulty, i)
-                    )
-                ) % charset.length
-            ];
-        }
-        return string(randomStr);
+    function getTokenCertificate(
+        string calldata regNumber
+    ) external view returns (TokenCertificate memory) {
+        require(
+            usedRegistrationNumbers[regNumber],
+            "Registration number not found"
+        );
+        return tokenCertificates[regNumber];
     }
 
-    function getAllSellers() external view returns (address[] memory) {
-        return sellers;
+    function getPurchaseCertificates(
+        address buyer
+    ) external view returns (PurchaseCertificate[] memory) {
+        return purchaseCertificates[buyer];
+    }
+
+    function uint2str(uint256 value) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(4);
+        uint256 temp = value;
+
+        // Pad with zeros if necessary
+        for (uint256 i = 3; i >= 0; i--) {
+            buffer[i] = bytes1(uint8(48 + (temp % 10)));
+            temp /= 10;
+            if (i == 0) break;
+        }
+
+        return string(buffer);
     }
 }

@@ -1,152 +1,140 @@
 import React, { useState, useEffect } from "react";
-import { useFetchUnverifiedSubmissions } from "../../contracts/admin";
+import { useFetchSubmission } from "../../contracts/others";
 import VerifyCarbon from "./VerifyCarbon";
-import { getCarbonVerifiedEvents } from "../../contracts/events";
 import { toast } from "react-hot-toast";
+import { ArrowUpDown, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 
 const Dashboard = () => {
-  const [unverifiedSubmissions, setUnverifiedSubmissions] = useState([]);
-  const [verifiedSubmissions, setVerifiedSubmissions] = useState([]);
-  const [loadingUnverified, setLoadingUnverified] = useState(true);
-  const [loadingVerified, setLoadingVerified] = useState(true);
-  const [ethRate, setEthRate] = useState(0);
+  const [unverifiedData, setUnverifiedData] = useState([]);
+  const [verifiedData, setVerifiedData] = useState([]);
+  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toString();
 
-  const { data: submissionsData, error: submissionsError } =
-    useFetchUnverifiedSubmissions();
-
-  const formatAddress = (address) => {
-    if (!address) return "";
+  // Helper function to safely truncate addresses
+  const truncateAddress = (address) => {
+    if (!address) return "Unknown";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const convertToEth = (amountInRupiah) =>
-    (amountInRupiah / ethRate).toFixed(6);
+  const {
+    data: fetchedData,
+    error: submissionDetailsError,
+    isLoading: submissionDetailsLoading,
+  } = useFetchSubmission();
 
-  // Fetch ETH to Rupiah exchange rate
   useEffect(() => {
-    const fetchEthRate = async () => {
-      try {
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=idr"
-        );
-        const data = await response.json();
-        setEthRate(data.ethereum.idr);
-      } catch (error) {
-        console.error("Error fetching ETH rate:", error);
-        toast.error("Error fetching ETH rate. Please try again later.");
-      }
-    };
-    fetchEthRate();
-  }, []);
+    if (fetchedData && fetchedData.length > 1) {
+      const sellers = fetchedData[0];
+      const submissions = fetchedData[1];
 
-  // Fetch verified submissions
-  useEffect(() => {
-    const fetchVerifiedEvents = async () => {
-      try {
-        const verifiedEvents = await getCarbonVerifiedEvents();
-        const sortedVerifiedEvents = verifiedEvents.sort((a, b) => b.id - a.id); // Sort descending by ID
+      const filteredData = submissions
+        .map((submission, index) => ({
+          seller: sellers[index] || "Unknown",
+          submissionId: submission.submissionId.toString(),
+          amount: submission.amount.toString(),
+          pricePerTon: submission.price.toString(),
+          verified: submission.verified,
+          timestamp: new Date(
+            Number(submission.timestamp) * 1000
+          ).toLocaleString(),
+        }))
+        .filter((submission) => !submission.verified);
 
-        setVerifiedSubmissions(sortedVerifiedEvents);
-        setLoadingVerified(false);
-      } catch (error) {
-        toast.error(
-          "Error fetching verified submissions. Please try again later."
-        );
-        console.error("Verified Events Error:", error);
-      }
-    };
-    fetchVerifiedEvents();
-  }, []);
-
-  // Fetch unverified submissions
-  useEffect(() => {
-    if (submissionsError) {
-      toast.error(
-        "Error fetching unverified submissions. Please try again later."
-      );
-      console.error("Submissions Error:", submissionsError);
-    } else if (submissionsData) {
-      const processedSubmissions = submissionsData.map((submission, index) => ({
-        submissionId: submission.id ? submission.id.toString() : `ID-${index}`,
-        seller: submission.seller || "Unknown",
-        amount: submission.amount ? submission.amount.toString() : "0",
-        pricePerTon: submission.pricePerTon
-          ? submission.pricePerTon.toString()
-          : "N/A",
-        timestamp: submission.timestamp
-          ? new Date(
-              Number(submission.timestamp.toString()) * 1000
-            ).toLocaleString()
-          : "Unknown",
-      }));
-      setUnverifiedSubmissions(processedSubmissions);
-      setLoadingUnverified(false);
+      setUnverifiedData(filteredData);
     }
-  }, [submissionsData, submissionsError]);
+  }, [fetchedData]);
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-    }).format(price);
-  };
+  useEffect(() => {
+    if (fetchedData && fetchedData.length > 1) {
+      const sellers = fetchedData[0];
+      const submissions = fetchedData[1];
+
+      const filteredVerifiedData = submissions
+        .map((submission, index) => ({
+          seller: sellers[index] || "Unknown",
+          submissionId: submission.submissionId.toString(),
+          verifiedAmount: submission.verifiedAmount.toString(),
+          verifiedPrice: submission.verifiedPrice.toString(),
+          verifier: submission.verifier || "Unknown",
+          blockNumber: submission.blockNumber,
+          verified: submission.verified,
+          timestamp: new Date(
+            Number(submission.timestamp) * 1000
+          ).toLocaleString(),
+        }))
+        .filter((submission) => submission.verified);
+
+      setVerifiedData(filteredVerifiedData);
+    }
+  }, [fetchedData]);
 
   const LoadingState = () => (
     <div className="flex items-center justify-center p-8 text-gray-400">
-      <svg className="animate-spin h-6 w-6 mr-2" viewBox="0 0 24 24">
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-          fill="none"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
+      <Clock className="w-6 h-6 animate-spin mr-2" />
       <span>Loading data...</span>
     </div>
   );
 
-  const EmptyState = ({ message }) => (
-    <div className="flex flex-col items-center justify-center p-8 text-gray-400">
-      <div className="text-4xl mb-2">📊</div>
-      <p>{message}</p>
+  const EmptyState = ({ message, icon: Icon }) => (
+    <div className="flex flex-col items-center justify-center p-12 text-gray-400">
+      <div className="bg-zinc-700/30 rounded-full p-4 mb-4">
+        <Icon className="w-8 h-8" />
+      </div>
+      <p className="text-lg">{message}</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-zinc-900 p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-12">
           <div>
-            <h1 className="text-4xl font-bold text-violet-400 mb-2">
-              Admin Dashboard
+            <h1 className="text-4xl font-bold text-violet-400 mb-3">
+              Carbon Credit Dashboard
             </h1>
-            <p className="text-gray-400">
-              Manage and verify carbon submissions
-            </p>
-          </div>
-          <div className="bg-zinc-800 px-4 py-2 rounded-lg shadow-lg">
-            <p className="text-sm text-gray-400">Current ETH Rate</p>
-            <p className="text-lg font-semibold text-violet-400">
-              {ethRate ? formatPrice(ethRate) : "Loading..."}
+            <p className="text-gray-400 text-lg">
+              Manage and verify carbon credit submissions
             </p>
           </div>
         </div>
 
-        <div className="space-y-8">
+        <div className="grid gap-8">
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-zinc-800/50 rounded-xl p-6 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-gray-400">Total Submissions</h3>
+                <ArrowUpDown className="w-5 h-5 text-violet-400" />
+              </div>
+              <p className="text-3xl font-bold text-white mt-2">
+                {unverifiedData.length + verifiedData.length}
+              </p>
+            </div>
+            <div className="bg-zinc-800/50 rounded-xl p-6 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-gray-400">Pending Verification</h3>
+                <Clock className="w-5 h-5 text-amber-400" />
+              </div>
+              <p className="text-3xl font-bold text-white mt-2">
+                {unverifiedData.length}
+              </p>
+            </div>
+            <div className="bg-zinc-800/50 rounded-xl p-6 border border-zinc-700/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-gray-400">Verified Credits</h3>
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+              </div>
+              <p className="text-3xl font-bold text-white mt-2">
+                {verifiedData.length}
+              </p>
+            </div>
+          </div>
+
           {/* Unverified Submissions Section */}
-          <div className="bg-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-zinc-800 rounded-xl shadow-lg overflow-hidden border border-zinc-700/50">
             <div className="p-6 border-b border-zinc-700">
               <h2 className="text-xl font-semibold text-violet-300 flex items-center">
-                <span className="mr-2">🔄</span>
-                Pending Carbon Submissions
+                <Clock className="w-5 h-5 mr-2 text-amber-400" />
+                Pending Submissions
               </h2>
             </div>
             <div className="p-6">
@@ -164,10 +152,10 @@ const Dashboard = () => {
                         Amount (tons)
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
-                        Price per Ton (Wei)
+                        Price per Ton
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
-                        Price per Ton (ETH)
+                        Timestamp
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
                         Action
@@ -175,43 +163,41 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-700">
-                    {loadingUnverified ? (
+                    {submissionDetailsLoading ? (
                       <tr>
                         <td colSpan={6}>
                           <LoadingState />
                         </td>
                       </tr>
-                    ) : unverifiedSubmissions.length === 0 ? (
+                    ) : unverifiedData.length === 0 ? (
                       <tr>
                         <td colSpan={6}>
-                          <EmptyState message="No pending submissions to verify" />
+                          <EmptyState
+                            message="No pending submissions to verify"
+                            icon={AlertCircle}
+                          />
                         </td>
                       </tr>
                     ) : (
-                      unverifiedSubmissions.map((submission, index) => (
+                      unverifiedData.map((submission, index) => (
                         <tr
                           key={index}
-                          className="hover:bg-zinc-700/50 transition-colors"
+                          className="hover:bg-zinc-700/30 transition-colors"
                         >
                           <td className="px-6 py-4 text-gray-300">
                             {submission.submissionId}
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {submission.seller}
+                          <td className="px-6 py-4 text-gray-300 font-mono">
+                            {truncateAddress(submission.seller)}
                           </td>
                           <td className="px-6 py-4 text-gray-300">
                             {submission.amount}
                           </td>
                           <td className="px-6 py-4 text-violet-400">
-                            {submission.pricePerTon === "N/A"
-                              ? "N/A"
-                              : formatPrice(submission.pricePerTon)}
+                            {convertWeiToEth(submission.pricePerTon)} ETH
                           </td>
-                          <td className="px-6 py-4 text-violet-400">
-                            {submission.pricePerTon === "N/A"
-                              ? "N/A"
-                              : (submission.pricePerTon / ethRate).toFixed(4) +
-                                " ETH"}
+                          <td className="px-6 py-4 text-gray-300">
+                            {submission.timestamp}
                           </td>
                           <td className="px-6 py-4">
                             <VerifyCarbon
@@ -236,11 +222,11 @@ const Dashboard = () => {
           </div>
 
           {/* Verified Submissions Section */}
-          <div className="bg-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-zinc-800 rounded-xl shadow-lg overflow-hidden border border-zinc-700/50">
             <div className="p-6 border-b border-zinc-700">
               <h2 className="text-xl font-semibold text-violet-300 flex items-center">
-                <span className="mr-2">✅</span>
-                Verified Carbon Submissions
+                <CheckCircle2 className="w-5 h-5 mr-2 text-green-400" />
+                Verified Submissions
               </h2>
             </div>
             <div className="p-6">
@@ -252,9 +238,6 @@ const Dashboard = () => {
                         Submission ID
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
-                        Verifier
-                      </th>
-                      <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
                         Seller
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
@@ -264,55 +247,43 @@ const Dashboard = () => {
                         Verified Price
                       </th>
                       <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
-                        Verified Price (ETH)
-                      </th>
-                      <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
-                        Block Number
-                      </th>
-                      <th className="px-6 py-4 text-sm font-semibold text-left text-gray-300">
                         Timestamp
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-700">
-                    {loadingVerified ? (
+                    {submissionDetailsLoading ? (
                       <tr>
-                        <td colSpan={7}>
+                        <td colSpan={6}>
                           <LoadingState />
                         </td>
                       </tr>
-                    ) : verifiedSubmissions.length === 0 ? (
+                    ) : verifiedData.length === 0 ? (
                       <tr>
-                        <td colSpan={7}>
-                          <EmptyState message="No verified submissions found" />
+                        <td colSpan={6}>
+                          <EmptyState
+                            message="No verified submissions found"
+                            icon={AlertCircle}
+                          />
                         </td>
                       </tr>
                     ) : (
-                      verifiedSubmissions.map((submission, index) => (
+                      verifiedData.map((submission, index) => (
                         <tr
                           key={index}
-                          className="hover:bg-zinc-700/50 transition-colors"
+                          className="hover:bg-zinc-700/30 transition-colors"
                         >
                           <td className="px-6 py-4 text-gray-300">
-                            {submission.id}
+                            {submission.submissionId}
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {formatAddress(submission.verifier)}
+                          <td className="px-6 py-4 text-gray-300 font-mono">
+                            {truncateAddress(submission.seller)}
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {formatAddress(submission.seller)}
-                          </td>
-                          <td className="px-6 py-4 text-green-400 font-medium">
+                          <td className="px-6 py-4 text-green-400">
                             {submission.verifiedAmount} tons
                           </td>
-                          <td className="px-6 py-4 text-violet-400 font-medium">
-                            {formatPrice(submission.verifiedPrice)}
-                          </td>
-                          <td className="px-6 py-4 text-violet-400 font-medium">
-                            {convertToEth(submission.verifiedPrice)}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {submission.blockNumber}
+                          <td className="px-6 py-4 text-violet-400">
+                            {convertWeiToEth(submission.verifiedPrice)} ETH
                           </td>
                           <td className="px-6 py-4 text-gray-300">
                             {submission.timestamp}
