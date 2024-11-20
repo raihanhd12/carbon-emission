@@ -22,16 +22,16 @@ contract CarbonToken is ERC20 {
     struct Submission {
         uint256 submissionId;
         uint256 amount;
-        uint256 price;
+        uint256 priceInEth; // Changed to store price in ether
         bool verified;
         uint256 verifiedAmount;
-        uint256 verifiedPrice;
+        uint256 verifiedPriceInEth; // Changed to store verified price in ether
         uint256 timestamp;
     }
 
     struct TokenCertificate {
         string registrationNumber;
-        uint256 price;
+        uint256 priceInEth; // Changed to store price in ether
         uint256 timestamp;
         address buyer;
         address seller;
@@ -43,8 +43,8 @@ contract CarbonToken is ERC20 {
         address seller;
         uint256 submissionId;
         uint256 totalAmount;
-        uint256 pricePerToken;
-        uint256 totalPrice;
+        uint256 pricePerTokenInEth; // Changed to store price in ether
+        uint256 totalPriceInEth; // Changed to store total price in ether
         uint256 timestamp;
         string[] registrationNumbers;
     }
@@ -70,20 +70,20 @@ contract CarbonToken is ERC20 {
         address indexed seller,
         uint256 indexed id,
         uint256 amount,
-        uint256 price
+        uint256 priceInEth
     );
     event SubmissionVerified(
         address indexed seller,
         uint256 indexed id,
         uint256 amount,
-        uint256 price
+        uint256 priceInEth
     );
     event TokensPurchased(
         address indexed buyer,
         address indexed seller,
         uint256 submissionId,
         uint256 amount,
-        uint256 totalPrice,
+        uint256 totalPriceInEth,
         string[] registrationNumbers
     );
 
@@ -151,9 +151,9 @@ contract CarbonToken is ERC20 {
 
     function submitCarbon(
         uint256 amount,
-        uint256 price
+        uint256 priceInEth // Price in ether
     ) external onlyRole(Role.Seller) {
-        require(amount > 0 && price > 0, "Invalid input");
+        require(amount > 0 && priceInEth > 0, "Invalid input");
         require(
             !hasUnverifiedSubmission[msg.sender],
             "Pending unverified submission"
@@ -161,12 +161,12 @@ contract CarbonToken is ERC20 {
 
         uint256 id = ++submissionCounter;
         submissions[msg.sender][id] = Submission({
-            submissionId: id, // Tambahkan submissionId di sini
+            submissionId: id,
             amount: amount,
-            price: price,
+            priceInEth: priceInEth, // Store price in ether
             verified: false,
             verifiedAmount: 0,
-            verifiedPrice: 0,
+            verifiedPriceInEth: 0,
             timestamp: block.timestamp
         });
 
@@ -178,14 +178,14 @@ contract CarbonToken is ERC20 {
             isSellerAdded[msg.sender] = true;
         }
 
-        emit SubmissionCreated(msg.sender, id, amount, price);
+        emit SubmissionCreated(msg.sender, id, amount, priceInEth);
     }
 
     function verifySubmission(
         address seller,
         uint256 id,
         uint256 verifiedAmount,
-        uint256 verifiedPrice
+        uint256 verifiedPriceInEth // Verified price in ether
     ) external onlyAdmin {
         Submission storage sub = submissions[seller][id];
         require(!sub.verified, "Already verified");
@@ -193,11 +193,11 @@ contract CarbonToken is ERC20 {
 
         sub.verified = true;
         sub.verifiedAmount = verifiedAmount;
-        sub.verifiedPrice = verifiedPrice;
+        sub.verifiedPriceInEth = verifiedPriceInEth;
 
         hasUnverifiedSubmission[seller] = false;
         _mint(seller, verifiedAmount);
-        emit SubmissionVerified(seller, id, verifiedAmount, verifiedPrice);
+        emit SubmissionVerified(seller, id, verifiedAmount, verifiedPriceInEth);
     }
 
     function buyTokens(
@@ -206,67 +206,70 @@ contract CarbonToken is ERC20 {
         uint256 amount
     ) external payable onlyRole(Role.Buyer) {
         Submission storage sub = submissions[seller][submissionId];
-        require(
-            sub.verified && amount <= sub.verifiedAmount,
-            "Invalid purchase"
-        );
 
-        uint256 totalPrice = amount * sub.verifiedPrice;
-        require(msg.value >= totalPrice, "Insufficient payment");
+        // Validasi submission
+        require(sub.verified, "Submission not verified");
+        require(sub.verifiedAmount >= amount, "Insufficient tokens available");
+        require(sub.submissionId == submissionId, "Invalid submissionId");
 
-        // Update submission
+        // Calculate total price in wei for comparison with msg.value
+        uint256 totalPriceInWei = amount * sub.verifiedPriceInEth * 1 ether;
+        require(msg.value == totalPriceInWei, "Incorrect payment amount");
+
+        // Kurangi jumlah token dalam submission
         sub.verifiedAmount -= amount;
 
-        // Generate registration numbers for each token
+        // Transfer ETH ke seller
+        (bool success, ) = payable(seller).call{value: totalPriceInWei}("");
+        require(success, "ETH transfer failed");
+
+        // Transfer token ke buyer
+        _transfer(seller, msg.sender, amount);
+
+        // Generate sertifikat token
         string[] memory regNumbers = new string[](amount);
         for (uint256 i = 0; i < amount; i++) {
             string memory regNumber = generateNextRegistrationNumber();
             regNumbers[i] = regNumber;
 
-            // Store token certificate
+            // Simpan data sertifikat
             tokenCertificates[regNumber] = TokenCertificate({
                 registrationNumber: regNumber,
-                price: sub.verifiedPrice,
+                priceInEth: sub.verifiedPriceInEth,
                 timestamp: block.timestamp,
                 buyer: msg.sender,
                 seller: seller,
                 submissionId: submissionId
             });
+
             usedRegistrationNumbers[regNumber] = true;
         }
 
-        // Store purchase certificate
+        // Simpan sertifikat pembelian
         purchaseCertificates[msg.sender].push(
             PurchaseCertificate({
                 buyer: msg.sender,
                 seller: seller,
                 submissionId: submissionId,
                 totalAmount: amount,
-                pricePerToken: sub.verifiedPrice,
-                totalPrice: totalPrice,
+                pricePerTokenInEth: sub.verifiedPriceInEth,
+                totalPriceInEth: sub.verifiedPriceInEth * amount,
                 timestamp: block.timestamp,
                 registrationNumbers: regNumbers
             })
         );
-
-        // Transfer tokens and handle payment
-        _transfer(seller, msg.sender, amount);
-        payable(seller).transfer(totalPrice);
-        if (msg.value > totalPrice) {
-            payable(msg.sender).transfer(msg.value - totalPrice);
-        }
 
         emit TokensPurchased(
             msg.sender,
             seller,
             submissionId,
             amount,
-            totalPrice,
+            sub.verifiedPriceInEth * amount,
             regNumbers
         );
     }
 
-    // View functionn
+    // View functions
     function getAllSubmissions()
         external
         view

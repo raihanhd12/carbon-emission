@@ -53,7 +53,7 @@ export const carbonTokenABI = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "price",
+        "name": "priceInEth",
         "type": "uint256"
       }
     ],
@@ -84,7 +84,7 @@ export const carbonTokenABI = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "price",
+        "name": "priceInEth",
         "type": "uint256"
       }
     ],
@@ -121,7 +121,7 @@ export const carbonTokenABI = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "totalPrice",
+        "name": "totalPriceInEth",
         "type": "uint256"
       },
       {
@@ -322,7 +322,7 @@ export const carbonTokenABI = [
           },
           {
             "internalType": "uint256",
-            "name": "price",
+            "name": "priceInEth",
             "type": "uint256"
           },
           {
@@ -337,7 +337,7 @@ export const carbonTokenABI = [
           },
           {
             "internalType": "uint256",
-            "name": "verifiedPrice",
+            "name": "verifiedPriceInEth",
             "type": "uint256"
           },
           {
@@ -388,12 +388,12 @@ export const carbonTokenABI = [
           },
           {
             "internalType": "uint256",
-            "name": "pricePerToken",
+            "name": "pricePerTokenInEth",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "totalPrice",
+            "name": "totalPriceInEth",
             "type": "uint256"
           },
           {
@@ -434,7 +434,7 @@ export const carbonTokenABI = [
           },
           {
             "internalType": "uint256",
-            "name": "price",
+            "name": "priceInEth",
             "type": "uint256"
           },
           {
@@ -540,12 +540,12 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "pricePerToken",
+        "name": "pricePerTokenInEth",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "totalPrice",
+        "name": "totalPriceInEth",
         "type": "uint256"
       },
       {
@@ -626,7 +626,7 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "price",
+        "name": "priceInEth",
         "type": "uint256"
       },
       {
@@ -641,7 +641,7 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "verifiedPrice",
+        "name": "verifiedPriceInEth",
         "type": "uint256"
       },
       {
@@ -662,7 +662,7 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "price",
+        "name": "priceInEth",
         "type": "uint256"
       }
     ],
@@ -701,7 +701,7 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "price",
+        "name": "priceInEth",
         "type": "uint256"
       },
       {
@@ -885,7 +885,7 @@ export const carbonTokenABI = [
       },
       {
         "internalType": "uint256",
-        "name": "verifiedPrice",
+        "name": "verifiedPriceInEth",
         "type": "uint256"
       }
     ],

@@ -7,7 +7,6 @@ import { ArrowUpDown, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 const Dashboard = () => {
   const [unverifiedData, setUnverifiedData] = useState([]);
   const [verifiedData, setVerifiedData] = useState([]);
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toString();
 
   // Helper function to safely truncate addresses
   const truncateAddress = (address) => {
@@ -31,10 +30,10 @@ const Dashboard = () => {
           seller: sellers[index] || "Unknown",
           submissionId: submission.submissionId.toString(),
           amount: submission.amount.toString(),
-          pricePerTon: submission.price.toString(),
+          pricePerTon: submission.priceInEth.toString(),
           verified: submission.verified,
           timestamp: new Date(
-            Number(submission.timestamp) * 1000
+            Number(submission.timestamp.toString()) * 1000
           ).toLocaleString(),
         }))
         .filter((submission) => !submission.verified);
@@ -53,12 +52,10 @@ const Dashboard = () => {
           seller: sellers[index] || "Unknown",
           submissionId: submission.submissionId.toString(),
           verifiedAmount: submission.verifiedAmount.toString(),
-          verifiedPrice: submission.verifiedPrice.toString(),
-          verifier: submission.verifier || "Unknown",
-          blockNumber: submission.blockNumber,
+          verifiedPrice: submission.verifiedPriceInEth.toString(),
           verified: submission.verified,
           timestamp: new Date(
-            Number(submission.timestamp) * 1000
+            Number(submission.timestamp.toString()) * 1000
           ).toLocaleString(),
         }))
         .filter((submission) => submission.verified);
@@ -194,7 +191,7 @@ const Dashboard = () => {
                             {submission.amount}
                           </td>
                           <td className="px-6 py-4 text-violet-400">
-                            {convertWeiToEth(submission.pricePerTon)} ETH
+                            {submission.pricePerTon} ETH
                           </td>
                           <td className="px-6 py-4 text-gray-300">
                             {submission.timestamp}
@@ -283,7 +280,7 @@ const Dashboard = () => {
                             {submission.verifiedAmount} tons
                           </td>
                           <td className="px-6 py-4 text-violet-400">
-                            {convertWeiToEth(submission.verifiedPrice)} ETH
+                            {submission.verifiedPrice} ETH
                           </td>
                           <td className="px-6 py-4 text-gray-300">
                             {submission.timestamp}

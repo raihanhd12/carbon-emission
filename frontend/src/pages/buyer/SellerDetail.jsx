@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   Info,
 } from "lucide-react";
+import BuyToken from "./BuyToken";
 
 const DetailCard = ({ icon: Icon, title, value, className = "" }) => (
   <div className="bg-zinc-800/50 rounded-xl p-6 border border-zinc-700/50 hover:border-violet-500/30 transition-all duration-300">
@@ -111,13 +112,16 @@ const SellerDetail = () => {
 
   const formatAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toFixed(4);
+  const convertWeiToEth = (wei) => {
+    if (!wei) return "0";
+    return Math.floor(Number(wei.toString()) / 1e18).toString();
+  };
 
   const {
     submissionId: id,
     amount,
     verifiedAmount,
-    verifiedPrice,
+    verifiedPriceInEth,
     timestamp,
     verified,
   } = submission;
@@ -224,7 +228,7 @@ const SellerDetail = () => {
               <DetailCard
                 icon={DollarSign}
                 title="Verified Price"
-                value={`${convertWeiToEth(verifiedPrice)} ETH`}
+                value={`${verifiedPriceInEth.toString()} ETH`}
                 className="text-violet-400"
               />
               <DetailCard
@@ -238,6 +242,9 @@ const SellerDetail = () => {
               />
             </div>
           </div>
+        </div>
+        <div className="pt-5">
+          <BuyToken sellerAddress={sellerAddress} submission={submission} />
         </div>
       </div>
     </div>

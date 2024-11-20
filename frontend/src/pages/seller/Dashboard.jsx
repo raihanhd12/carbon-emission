@@ -3,25 +3,29 @@ import { useActiveAccount } from "thirdweb/react";
 import SubmitCarbon from "./SubmitCarbon";
 import { toast } from "react-hot-toast";
 import { useSubmitCarbon } from "../../contracts/seller";
-import { useFetchUserData, useFetchSubmission } from "../../contracts/others";
+import {
+  useFetchUserData,
+  useFetchSubmission,
+  useBalanceOf,
+} from "../../contracts/others";
 
 const Dashboard = () => {
   const activeAccount = useActiveAccount();
   const address = activeAccount?.address;
   const [submissionId, setSubmissionId] = useState(1);
   const walletAddress = activeAccount?.address;
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toString();
+  const { balance, isLoading, error } = useBalanceOf(address);
 
   const { data: userData, isLoading: userDataLoading } =
     useFetchUserData(walletAddress);
-
-  console.log(userData);
 
   const {
     data: fetchedData,
     error: submissionDetailsError,
     isLoading: submissionDetailsLoading,
   } = useFetchSubmission();
+
+  console.log(fetchedData);
 
   const [addresses, submissions] = fetchedData || [[], []];
 
@@ -133,6 +137,10 @@ const Dashboard = () => {
                   ? `${totalVerified.toString()} tons`
                   : "Not Verified"}
               </span>
+            </div>
+            <div>
+              <h3>Token Balance : </h3>
+              <p>{balance ? Number(balance).toFixed(0) : 0} VCT</p>
             </div>
           </div>
         </div>
@@ -267,9 +275,7 @@ const Dashboard = () => {
                         {sub?.amount ? sub.amount.toString() : "N/A"} tons
                       </td>
                       <td className="px-4 py-3 text-sm text-violet-400">
-                        {sub?.price
-                          ? convertWeiToEth(sub.price.toString())
-                          : "N/A"}{" "}
+                        {sub?.priceInEth ? sub.priceInEth.toString() : "N/A"}{" "}
                         ETH
                       </td>
                       <td className="px-4 py-3 text-sm ">
@@ -284,9 +290,9 @@ const Dashboard = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">
-                        {sub?.verifiedPrice ? (
+                        {sub?.verifiedPriceInEth ? (
                           <span className="text-green-400 font-bold">
-                            {convertWeiToEth(sub.verifiedPrice.toString())} ETH
+                            {sub.verifiedPriceInEth.toString()} ETH
                           </span>
                         ) : (
                           <span className="text-yellow-400 font-bold">

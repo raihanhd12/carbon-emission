@@ -10,43 +10,21 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
 
   const { verifyCarbonSubmission } = useVerifyCarbon();
 
-  const convertEthToWei = (eth) => BigInt(Number(eth) * 1e18);
-
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toString();
-
   const handleVerify = async (e) => {
     e.preventDefault();
-
-    if (!verifiedAmount) {
-      onError("Verified amount is required.");
-      return;
-    }
-
-    if (!verifiedPricePerTon) {
-      onError("Verified price per ton (ETH) is required.");
-      return;
-    }
-
-    const parsedAmount = Number(verifiedAmount);
-    const submittedAmount = Number(submission.amount);
-
-    if (parsedAmount > submittedAmount) {
-      onError(
-        `Verified amount cannot exceed submitted amount (${submittedAmount}).`
-      );
-      setVerifiedAmount(submission.amount);
+    if (!verifiedAmount || !verifiedPricePerTon) {
+      onError("Both fields are required.");
       return;
     }
 
     try {
       setLoading(true);
-      const priceInWei = convertEthToWei(verifiedPricePerTon);
-
+      // Send price directly in ETH without conversion
       await verifyCarbonSubmission(
         submission.seller,
         submission.submissionId,
-        BigInt(parsedAmount),
-        priceInWei,
+        BigInt(verifiedAmount),
+        Number(verifiedPricePerTon), // Send as number
         onError
       );
 
@@ -59,7 +37,6 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
       setLoading(false);
     }
   };
-
   return (
     <>
       <button
@@ -111,7 +88,7 @@ const VerifyCarbon = ({ submission, onVerify, onError }) => {
                           Price Per Ton
                         </span>
                         <p className="text-violet-300 font-medium truncate">
-                          {convertWeiToEth(submission.pricePerTon)}
+                          {submission.pricePerTon}
                         </p>
                       </div>
                       <div>

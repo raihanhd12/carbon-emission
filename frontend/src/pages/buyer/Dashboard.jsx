@@ -27,7 +27,7 @@ const StatCard = ({ title, value, change }) => (
   </div>
 );
 
-const SubmissionCard = ({ submission, formatAddress, convertWeiToEth }) => (
+const SubmissionCard = ({ submission, formatAddress }) => (
   <div className="bg-zinc-800/50 rounded-xl border border-zinc-700/50 overflow-hidden hover:border-violet-500/50 transition-all duration-300 transform hover:-translate-y-1">
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -63,7 +63,7 @@ const SubmissionCard = ({ submission, formatAddress, convertWeiToEth }) => (
             Verified Price
           </div>
           <div className="text-lg font-semibold text-violet-400">
-            {convertWeiToEth(submission.verifiedPrice.toString())} ETH
+            {submission.verifiedPriceInEth.toString()} ETH
           </div>
         </div>
       </div>
@@ -98,7 +98,6 @@ const Dashboard = () => {
   const [submissionData, setSubmissionData] = useState([]);
   const formatAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toFixed(4);
 
   const {
     data: fetchedData,
@@ -200,7 +199,6 @@ const Dashboard = () => {
                     key={index}
                     submission={submission}
                     formatAddress={formatAddress}
-                    convertWeiToEth={convertWeiToEth}
                   />
                 ))
               ) : (
@@ -225,7 +223,6 @@ const Dashboard = () => {
                     key={index}
                     submission={submission}
                     formatAddress={formatAddress}
-                    convertWeiToEth={convertWeiToEth}
                   />
                 ))
               ) : (

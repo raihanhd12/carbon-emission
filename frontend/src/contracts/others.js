@@ -45,3 +45,13 @@ export const useFetchSubmission = () => {
         watch: true, // Auto-refresh when the contract data changes
     });
 }
+export const useBalanceOf = (address) => {
+    const { data, isLoading, error } = useReadContract({
+        contract: carbonTokenContract,
+        method: "balanceOf",
+        params: [address], // Alamat yang ingin dicek balancenya
+        watch: true, // Memantau perubahan
+    });
+
+    return { balance: data, isLoading, error };
+};

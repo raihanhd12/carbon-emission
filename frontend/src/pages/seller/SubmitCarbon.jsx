@@ -17,23 +17,13 @@ const SubmitCarbon = ({ address, isDisabled }) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!amount || !pricePerTonEth) {
-      toast.error("Please enter both amount and price.");
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
       const parsedAmount = BigInt(amount);
-      // Konversi harga dari ETH ke Wei
-      const parsedPriceWei = convertEthToWei(pricePerTonEth);
-
+      // Pass ETH value directly, without pre-converting to Wei
       const success = await submitCarbon(
         parsedAmount,
-        parsedPriceWei,
-        (error) => {
-          toast.error(error.message || "Error during submission");
-        }
+        pricePerTonEth,
+        (error) => toast.error(error.message || "Error during submission")
       );
 
       if (success) {

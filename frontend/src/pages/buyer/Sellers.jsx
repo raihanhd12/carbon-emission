@@ -17,7 +17,6 @@ import {
 const SellerCard = ({ seller }) => {
   const formatAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
-  const convertWeiToEth = (wei) => (Number(wei) / 1e18).toFixed(4);
   const sellerAddress = seller.sellerAddress;
 
   const { data: userData, isLoading: userDataLoading } =
@@ -79,7 +78,7 @@ const SellerCard = ({ seller }) => {
             <div className="bg-zinc-900/30 p-3 rounded-lg">
               <div className="text-sm text-zinc-400 mb-1">Price</div>
               <div className="text-violet-400 font-semibold">
-                {convertWeiToEth(seller.verifiedPrice)} ETH
+                {seller.verifiedPrice} ETH
               </div>
             </div>
           </div>
